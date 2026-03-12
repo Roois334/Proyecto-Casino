@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Gestión Usuarios - Admin{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;"><a href="/admin" class="btn-volver"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></a></div>
+<div class="page-header">
+  <h1 class="page-title">Gestión de <span>Usuarios</span></h1>
+  <p class="page-subtitle">{{ usuarios|length }} usuarios registrados</p>
+</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for c,m in messages %}<div class="alert alert-{{ c }}" style="margin-bottom:14px;">{{ m }}</div>{% endfor %}
+{% endwith %}
+<div style="background:var(--negro2,#12121a);border-radius:20px;padding:28px;border:1px solid rgba(201,168,76,0.08);">
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+      <thead><tr style="background:rgba(201,168,76,0.05);">
+        <th style="padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);">Nombre</th>
+        <th style="padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);">Email</th>
+        <th style="padding:10px 14px;text-align:right;color:var(--gris,#7a7a8c);">Saldo</th>
+        <th style="padding:10px 14px;text-align:center;color:var(--gris,#7a7a8c);">VIP</th>
+        <th style="padding:10px 14px;text-align:center;color:var(--gris,#7a7a8c);">Estado</th>
+        <th style="padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);">Registro</th>
+        <th style="padding:10px 14px;text-align:center;color:var(--gris,#7a7a8c);">Acción</th>
+      </tr></thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr style="border-bottom:1px solid rgba(201,168,76,0.06);">
+          <td style="padding:10px 14px;font-weight:600;">{{ u['nombre'] }}</td>
+          <td style="padding:10px 14px;color:var(--gris,#7a7a8c);">{{ u['email'] }}</td>
+          <td style="padding:10px 14px;text-align:right;font-weight:700;">COP${{ u['saldo']|cop }}</td>
+          <td style="padding:10px 14px;text-align:center;">{{ u['puntos_vip'] }}pts</td>
+          <td style="padding:10px 14px;text-align:center;">
+            {% if u['bloqueado'] %}
+            <span style="background:rgba(220,20,60,0.12);color:#dc143c;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;"> Bloqueado</span>
+            {% else %}
+            <span style="background:rgba(40,167,69,0.12);color:#28a745;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;"> Activo</span>
+            {% endif %}
+          </td>
+          <td style="padding:10px 14px;color:var(--gris,#7a7a8c);">{{ u['fecha_registro']|fecha  }}</td>
+          <td style="padding:10px 14px;text-align:center;">
+            <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+            <a href="/admin/usuario/{{ u['id'] }}/perfil" style="padding:6px 12px;background:rgba(201,168,76,.15);color:#c9a84c;border:1px solid rgba(201,168,76,.3);border-radius:6px;font-size:0.75rem;font-weight:600;text-decoration:none;"> Perfil</a>
+            {% if u['bloqueado'] %}
+            <form method="POST" action="/admin/usuario/{{ u['id'] }}/desbloquear" style="display:inline;">
+              <button type="submit" style="padding:6px 12px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:600;"> Desbloquear</button>
+            </form>
+            {% else %}
+            <button onclick="bloquear({{ u['id'] }}, '{{ u['nombre'] }}')" style="padding:6px 12px;background:#dc143c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.75rem;font-weight:600;"> Bloquear</button>
+            {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal bloqueo -->
+<div id="modalBloqueo" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--negro2,#12121a);border-radius:16px;padding:32px;max-width:400px;width:90%;">
+    <h3 style="margin-bottom:16px;font-family:'Rajdhani',serif;">Bloquear Usuario</h3>
+    <p id="modalNombre" style="color:var(--gris,#7a7a8c);margin-bottom:16px;"></p>
+    <form method="POST" id="formBloqueo">
+      <label style="font-size:0.8rem;font-weight:600;color:var(--gris,#7a7a8c);text-transform:uppercase;display:block;margin-bottom:6px;">Razón del bloqueo</label>
+      <input type="text" name="razon" required placeholder="Ej: Actividad sospechosa"
+             style="width:100%;padding:12px;border:2px solid rgba(220,20,60,0.2);border-radius:8px;margin-bottom:16px;font-size:0.9rem;">
+      <div style="display:flex;gap:10px;">
+        <button type="submit" style="flex:1;padding:12px;background:#dc143c;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Bloquear</button>
+        <button type="button" onclick="document.getElementById('modalBloqueo').style.display='none'" style="flex:1;padding:12px;background:#f0f0f0;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function bloquear(id, nombre){
+  document.getElementById('modalNombre').textContent = 'Usuario: ' + nombre;
+  document.getElementById('formBloqueo').action = '/admin/usuario/' + id + '/bloquear';
+  document.getElementById('modalBloqueo').style.display = 'flex';
+}
+</script>
+{% endblock %}

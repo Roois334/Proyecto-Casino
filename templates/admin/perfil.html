@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Perfil Admin — Royal Spin{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span class="section-tag">Administrador</span>
+  <h1 class="page-title">Perfil <span class="gold">Admin</span></h1>
+  <p class="page-subtitle">Panel de control y configuración de administrador</p>
+</div>
+
+<!-- HEADER ADMIN -->
+<div class="admin-perfil-header">
+  <div class="admin-avatar-big">{{ admin_user['nombre'][0].upper() }}</div>
+  <div class="admin-perfil-info">
+    <div class="admin-perfil-nombre">{{ admin_user['nombre'] }}</div>
+    <div class="admin-perfil-email">{{ admin_user['email'] }}</div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
+      <span class="badge-admin">ADMINISTRADOR</span>
+      <span class="badge-admin-sub">Acceso Total</span>
+    </div>
+  </div>
+  <div class="admin-perfil-stats-mini">
+    <div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;background:var(--gd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">{{ total_usuarios }}</div>
+      <div style="font-size:.68rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Usuarios</div>
+    </div>
+    <div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:{% if ganancia_casino >= 0 %}#4ade80{% else %}#f87171{% endif %};">COP${{ ganancia_casino|cop }}</div>
+      <div style="font-size:.68rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Ganancia Casino</div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS GRID -->
+<div class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card">
+    <span class="stat-num">{{ total_usuarios }}</span>
+    <span class="stat-label">Jugadores Registrados</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num" style="color:{% if dep_pendientes > 0 %}#f87171{% else %}#4ade80{% endif %};">{{ dep_pendientes }}</span>
+    <span class="stat-label">Depositos Pendientes</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num" style="color:{% if ret_pendientes > 0 %}#f87171{% else %}#4ade80{% endif %};">{{ ret_pendientes }}</span>
+    <span class="stat-label">Retiros Pendientes</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num">{{ total_apuestas }}</span>
+    <span class="stat-label">Total Apuestas</span>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+  <!-- INFO ADMIN -->
+  <div class="card">
+    <div class="card-title">Informacion del Administrador</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(200,16,46,.1);">
+        <span style="color:var(--gris);font-size:.82rem;">Nombre</span>
+        <span style="font-weight:600;color:var(--blanco);">{{ admin_user['nombre'] }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(200,16,46,.1);">
+        <span style="color:var(--gris);font-size:.82rem;">Email</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-weight:600;color:var(--dorado2);">{{ admin_user['email'] }}</span>
+          <button type="button" onclick="toggleAdminEmailForm()" class="btn btn-outline-r" style="font-size:.6rem;padding:3px 8px;">Cambiar</button>
+        </div>
+      </div>
+      <div id="adminEmailForm" style="display:none;background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.25);border-radius:10px;padding:14px;margin:4px 0;">
+        <div style="font-size:.75rem;font-weight:700;color:var(--rojo3);margin-bottom:8px;">Cambiar Correo Admin</div>
+        <p style="font-size:.72rem;color:var(--gris2);margin-bottom:10px;">Código de verificación al correo actual.</p>
+        <form method="POST" action="/admin/perfil/solicitar-cambio-email">
+          <input type="email" name="nuevo_email" placeholder="Nuevo correo"
+            style="width:100%;padding:9px 12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.3);border-radius:8px;color:var(--blanco);font-size:.85rem;outline:none;margin-bottom:8px;">
+          <button type="submit" class="btn btn-r btn-sm" style="width:100%;">Enviar Código</button>
+        </form>
+        <button type="button" onclick="toggleAdminEmailForm()" style="background:none;border:none;color:var(--gris);font-size:.7rem;margin-top:6px;cursor:pointer;width:100%;text-align:center;">Cancelar</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(200,16,46,.1);">
+        <span style="color:var(--gris);font-size:.82rem;">Rol</span>
+        <span style="font-weight:700;color:var(--rojo3);text-transform:uppercase;">{{ admin_user['rol'] }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;">
+        <span style="color:var(--gris);font-size:.82rem;">Miembro desde</span>
+        <span style="font-weight:600;color:var(--blanco);">{{ admin_user['fecha_registro']|fecha }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCESOS RAPIDOS + CONTRASEÑA -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <!-- Cambio contraseña -->
+    <div class="card">
+      <div class="card-title">Cambiar Contraseña</div>
+      <form method="POST" action="/admin/perfil/cambiar-password" id="adminFormPass" novalidate>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Contraseña Actual</label>
+          <div style="position:relative;">
+            <input type="password" name="password_actual" id="aPAct" placeholder="Tu contraseña actual"
+              style="width:100%;padding:10px 44px 10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.9rem;outline:none;">
+            <button type="button" class="toggle-pass" onclick="aToggle('aPAct','aIAct')">
+              <svg id="aIAct" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Nueva Contraseña</label>
+          <div style="position:relative;">
+            <input type="password" name="password_nueva" id="aPNew" placeholder="Mínimo 6 caracteres" oninput="aValNew()"
+              style="width:100%;padding:10px 44px 10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.9rem;outline:none;">
+            <button type="button" class="toggle-pass" onclick="aToggle('aPNew','aINew')">
+              <svg id="aINew" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field-msg" id="aMNew"></div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Confirmar Nueva</label>
+          <div style="position:relative;">
+            <input type="password" name="confirmar_nueva" id="aPConf" placeholder="Repite la nueva" oninput="aValConf()"
+              style="width:100%;padding:10px 44px 10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.9rem;outline:none;">
+            <button type="button" class="toggle-pass" onclick="aToggle('aPConf','aIConf')">
+              <svg id="aIConf" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field-msg" id="aMConf"></div>
+        </div>
+        <button type="button" onclick="aEnviarPass()" class="btn btn-r btn-block">Cambiar Contraseña</button>
+        <div style="background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.15);border-radius:8px;padding:8px;margin-top:8px;font-size:.7rem;color:var(--gris2);">
+           Código de verificación al correo para confirmar.
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Acciones Rapidas</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <a href="/admin" class="btn btn-r btn-block btn-sm">Panel de Control</a>
+        <a href="/admin/depositos" class="btn btn-d btn-block btn-sm">
+          Gestionar Depositos {% if dep_pendientes > 0 %}<span style="background:rgba(0,0,0,.3);border-radius:20px;padding:2px 8px;">{{ dep_pendientes }}</span>{% endif %}
+        </a>
+        <a href="/admin/retiros" class="btn btn-d btn-block btn-sm">
+          Gestionar Retiros {% if ret_pendientes > 0 %}<span style="background:rgba(0,0,0,.3);border-radius:20px;padding:2px 8px;">{{ ret_pendientes }}</span>{% endif %}
+        </a>
+        <a href="/admin/usuarios" class="btn btn-outline btn-block btn-sm">Ver Usuarios</a>
+        <a href="/admin/reportes" class="btn btn-outline btn-block btn-sm">Ver Reportes</a>
+        <a href="/logout" class="btn btn-outline-r btn-block btn-sm" onclick="return confirm('Cerrar sesion?')">Cerrar Sesion</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleAdminEmailForm(){
+  const f = document.getElementById('adminEmailForm');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+function aToggle(inputId, iconId) {
+  const inp = document.getElementById(inputId);
+  const ico = document.getElementById(iconId);
+  if(inp.type === 'password'){ inp.type = 'text'; ico.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'; }
+  else { inp.type = 'password'; ico.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'; }
+}
+function setMsg(id, msg, type){ const el=document.getElementById(id); if(el){el.textContent=msg;el.className='field-msg'+(msg?' '+type:'');} }
+function aValNew(){
+  const v=document.getElementById('aPNew').value;
+  if(v.length<6&&v){ setMsg('aMNew','Minimo 6 caracteres','error'); return false; }
+  if(v&&!/[A-Z]/.test(v)){ setMsg('aMNew','Al menos 1 mayuscula','error'); return false; }
+  if(v&&!/\d/.test(v)){ setMsg('aMNew','Al menos 1 numero','error'); return false; }
+  if(v) setMsg('aMNew','Valida','ok'); return true;
+}
+function aValConf(){
+  const p=document.getElementById('aPNew').value, p2=document.getElementById('aPConf').value;
+  if(p!==p2){ setMsg('aMConf','No coinciden','error'); return false; }
+  if(p2) setMsg('aMConf','Coinciden','ok'); return true;
+}
+function aEnviarPass(){
+  if(!document.getElementById('aPAct').value){ alert('Ingresa tu contraseña actual'); return; }
+  if(!aValNew()) return;
+  if(!aValConf()) return;
+  document.getElementById('adminFormPass').submit();
+}
+</script>
+{% endblock %}

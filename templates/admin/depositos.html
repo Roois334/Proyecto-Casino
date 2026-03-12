@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Gestión Depósitos - Admin{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;"><a href="/admin" class="btn-volver"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></a></div>
+<div class="page-header">
+  <h1 class="page-title">Gestión de <span>Depósitos</span></h1>
+</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for c,m in messages %}<div class="alert alert-{{ c }}" style="margin-bottom:14px;">{{ m }}</div>{% endfor %}
+{% endwith %}
+<div style="background:var(--negro2,#12121a);border-radius:20px;padding:28px;border:1px solid rgba(201,168,76,0.08);">
+  {% if depositos %}
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.83rem;">
+      <thead><tr style="background:rgba(201,168,76,0.05);">
+        <th style="padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);">#</th>
+        <th style="padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);">Usuario</th>
+        <th style="padding:10px 14px;text-align:right;color:var(--gris,#7a7a8c);">Monto</th>
+        <th style="padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);">Método</th>
+        <th style="padding:10px 14px;text-align:center;color:var(--gris,#7a7a8c);">Estado</th>
+        <th style="padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);">Fecha</th>
+        <th style="padding:10px 14px;text-align:center;color:var(--gris,#7a7a8c);">Acciones</th>
+      </tr></thead>
+      <tbody>
+        {% for d in depositos %}
+        <tr style="border-bottom:1px solid rgba(201,168,76,0.06);{% if d['estado']=='pendiente' %}background:rgba(255,193,7,0.04);{% endif %}">
+          <td style="padding:10px 14px;color:var(--gris,#7a7a8c);">#{{ d['id'] }}</td>
+          <td style="padding:10px 14px;"><strong>{{ d['usuario_nombre'] }}</strong><br><span style="color:var(--gris,#7a7a8c);font-size:0.75rem;">{{ d['usuario_email'] }}</span></td>
+          <td style="padding:10px 14px;text-align:right;font-weight:700;color:#28a745;">+COP${{ d['monto']|cop }}</td>
+          <td style="padding:10px 14px;text-transform:capitalize;">{{ d['metodo'] }}</td>
+          <td style="padding:10px 14px;text-align:center;">
+            <span style="padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;
+              {% if d['estado']=='pendiente' %}background:rgba(255,193,7,0.15);color:#856404;
+              {% elif d['estado']=='aprobado' %}background:rgba(40,167,69,0.15);color:#1a6630;
+              {% else %}background:rgba(220,20,60,0.12);color:#dc143c;{% endif %}">
+              {{ d['estado']|upper }}
+            </span>
+          </td>
+          <td style="padding:10px 14px;color:var(--gris,#7a7a8c);white-space:nowrap;">{{ d['fecha']|fecha }}</td>
+          <td style="padding:10px 14px;text-align:center;">
+            {% if d['estado'] == 'pendiente' %}
+            <div style="display:flex;gap:6px;justify-content:center;">
+              <form method="POST" action="/admin/deposito/{{ d['id'] }}/aprobar" style="display:inline;">
+                <button type="submit" style="padding:6px 14px;background:#28a745;color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:600;" onclick="return confirm('¿Aprobar este depósito de COP${{ '%.2f'|format(d['monto']) }}?')"> Aprobar</button>
+              </form>
+              <form method="POST" action="/admin/deposito/{{ d['id'] }}/rechazar" style="display:inline;">
+                <button type="submit" style="padding:6px 14px;background:#dc143c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.78rem;font-weight:600;" onclick="return confirm('¿Rechazar este depósito?')"> Rechazar</button>
+              </form>
+            </div>
+            {% else %}
+            <span style="color:var(--gris,#7a7a8c);font-size:0.75rem;">Procesado</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="text-align:center;color:var(--gris,#7a7a8c);padding:40px;">No hay depósitos registrados.</p>
+  {% endif %}
+</div>
+{% endblock %}

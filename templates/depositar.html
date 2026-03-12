@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Depositar — Royal Spin{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div style="padding:40px 20px;display:flex;align-items:center;justify-content:center;min-height:500px;">
+  <div class="form-card" style="max-width:500px;width:100%;position:relative;">
+    <a href="/dashboard" class="btn-volver" style="position:absolute;top:20px;left:20px;">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <div class="form-logo"><span class="form-logo-suit">♠</span> Royal Spin <span class="form-logo-suit">♠</span></div>
+    <h2 style="text-align:center;">Depositar con RoyalCoin</h2>
+    <p class="form-card-sub">El único método de pago oficial del casino</p>
+    <div class="form-sep"></div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for c,m in messages %}
+      <div class="alert alert-{{ c }}">
+        <span>{% if c=='success' %}✓{% elif c=='error' %}✗{% else %}!{% endif %}</span>
+        {{ m }}
+        <button onclick="this.parentElement.remove()" class="alert-close">×</button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- Encabezado RSC -->
+    <div class="rsc-header">
+      <div class="rsc-logo-wrap">
+        <div class="rsc-logo-coin">🪙</div>
+        <div>
+          <div class="rsc-logo-name">RoyalCoin <span class="rsc-ticker">RSC</span></div>
+          <div class="rsc-logo-sub">Criptomoneda oficial de Royal Spin</div>
+        </div>
+      </div>
+      <div class="rsc-stats-row">
+        <div class="rsc-stat"><span class="rsc-stat-val">COP$1.000</span><span class="rsc-stat-lbl">por RSC</span></div>
+        <div class="rsc-stat"><span class="rsc-stat-val rsc-green">+10%</span><span class="rsc-stat-lbl">Bono depósito</span></div>
+        <div class="rsc-stat"><span class="rsc-stat-val">50 RSC</span><span class="rsc-stat-lbl">Mínimo</span></div>
+      </div>
+    </div>
+
+    <form method="POST" id="formDep" novalidate>
+
+      <label>Cantidad de RoyalCoin (RSC) a depositar</label>
+      <div class="monto-wrap">
+        <input type="text" name="monto" id="montoDep"
+          placeholder="Ej: 100"
+          autocomplete="off"
+          oninput="fmtMonto(this)">
+        <span class="monto-unit">RSC</span>
+      </div>
+      <div class="field-hint" id="mMontoDep"></div>
+
+      <!-- Resumen en tiempo real -->
+      <div id="resumen-box" class="resumen-box" style="display:none;">
+        <div class="resumen-row">
+          <span>RSC enviados</span>
+          <span id="res-rsc" class="res-gold">0 RSC</span>
+        </div>
+        <div class="resumen-row">
+          <span>Valor en COP</span>
+          <span id="res-cop">COP$0</span>
+        </div>
+        <div class="resumen-row rsc-bonus-row">
+          <span>🎁 Bono 10%</span>
+          <span id="res-bonus" class="rsc-green">+COP$0</span>
+        </div>
+        <div class="resumen-sep"></div>
+        <div class="resumen-row resumen-total">
+          <span>Total a acreditar</span>
+          <span id="res-total">COP$0</span>
+        </div>
+      </div>
+
+      <!-- Instrucción interna -->
+      <div class="rsc-instruccion">
+        <div class="rsc-instruccion-icon">💬</div>
+        <div>
+          <div class="rsc-instruccion-titulo">¿Cómo comprar RoyalCoin?</div>
+          <div class="rsc-instruccion-texto">
+            Contáctate con el administrador del casino por
+            <a href="/soporte" style="color:var(--dorado2);font-weight:700;">Soporte →</a>
+            para coordinar el pago y recibir tus RSC. Una vez confirmado, el admin aprobará tu depósito y el saldo se acreditará automáticamente.
+          </div>
+        </div>
+      </div>
+
+      <label style="margin-top:14px;">Referencia o nota <span style="color:var(--gris);font-size:.75rem;">(opcional)</span></label>
+      <input type="text" name="comprobante" id="comprobante" placeholder="Ej: Pagué por WhatsApp el 11/03" autocomplete="off">
+
+      <button type="button" onclick="enviarDep()" class="btn-rsc-dep" id="btnDep">
+        🪙 Confirmar Depósito con RoyalCoin
+      </button>
+    </form>
+
+    <div class="form-links"><a href="/historial">Ver historial de depósitos →</a></div>
+  </div>
+</div>
+
+
+
+<style>
+/* Header RSC */
+.rsc-header {
+  background: linear-gradient(135deg, rgba(201,168,76,.1) 0%, rgba(200,16,46,.06) 100%);
+  border: 1px solid rgba(201,168,76,.35);
+  border-radius: 16px; padding: 18px 20px; margin-bottom: 22px;
+}
+.rsc-logo-wrap { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+.rsc-logo-coin { font-size: 2.4rem; animation: float 3s ease-in-out infinite; }
+.rsc-logo-name { font-family:'Rajdhani',sans-serif; font-size:1.3rem; font-weight:800;
+  background:var(--gd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.rsc-ticker { font-size:.85rem; font-weight:700; background:rgba(201,168,76,.2);
+  -webkit-text-fill-color: var(--dorado2); padding:2px 8px; border-radius:20px; margin-left:6px; }
+.rsc-logo-sub { font-size:.72rem; color:var(--gris2); margin-top:2px; }
+.rsc-stats-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+.rsc-stat { background:rgba(0,0,0,.3); border-radius:10px; padding:10px; text-align:center; }
+.rsc-stat-val { display:block; font-weight:800; font-size:.95rem; color:var(--blanco); }
+.rsc-stat-lbl { display:block; font-size:.6rem; color:var(--gris); text-transform:uppercase; letter-spacing:.06em; margin-top:3px; }
+.rsc-green { color:#4ade80 !important; }
+
+/* Monto */
+.monto-wrap { position:relative; }
+.monto-wrap input { padding-right:54px !important; font-size:1.1rem; font-weight:700; }
+.monto-unit { position:absolute; right:14px; top:50%; transform:translateY(-50%); font-size:.8rem; font-weight:800; color:var(--dorado2); pointer-events:none; }
+
+/* Resumen */
+.resumen-box { background:rgba(0,0,0,.3); border:1px solid rgba(201,168,76,.2); border-radius:12px; padding:14px 16px; margin-top:12px; margin-bottom:14px; }
+.resumen-row { display:flex; justify-content:space-between; align-items:center; font-size:.82rem; color:var(--gris2); padding:4px 0; }
+.rsc-bonus-row { color: #4ade80 !important; }
+.rsc-bonus-row span { color:#4ade80 !important; }
+.resumen-sep { border-top:1px solid rgba(201,168,76,.18); margin:8px 0; }
+.resumen-total { font-weight:800; font-size:.95rem; color:var(--blanco) !important; }
+.resumen-total span { color:var(--blanco) !important; }
+.res-gold { color:var(--dorado2) !important; font-weight:700; }
+
+/* Dirección */
+.rsc-instruccion { display:flex; gap:14px; align-items:flex-start; background:rgba(201,168,76,.06); border:1px solid rgba(201,168,76,.25); border-radius:12px; padding:16px; margin:14px 0; }
+.rsc-instruccion-icon { font-size:1.6rem; flex-shrink:0; margin-top:2px; }
+.rsc-instruccion-titulo { font-weight:700; font-size:.85rem; color:var(--dorado2); margin-bottom:6px; }
+.rsc-instruccion-texto { font-size:.78rem; color:var(--gris2); line-height:1.65; }
+
+/* Botón */
+.btn-rsc-dep {
+  width:100%; margin-top:20px; padding:15px;
+  background: linear-gradient(135deg, #b8860b 0%, #e8c96a 45%, #c9a84c 100%);
+  color: var(--negro); font-weight:800; font-size:1rem; font-family:'DM Sans',sans-serif;
+  border:none; border-radius:12px; cursor:pointer;
+  box-shadow: 0 4px 20px rgba(201,168,76,.4);
+  transition: all .2s; letter-spacing:.03em;
+}
+.btn-rsc-dep:hover { box-shadow:0 6px 30px rgba(201,168,76,.6); transform:translateY(-2px); }
+.btn-rsc-dep:active { transform:translateY(0); }
+
+input[type=text]{-moz-appearance:textfield!important;}
+input[type=text]::-webkit-outer-spin-button,input[type=text]::-webkit-inner-spin-button{-webkit-appearance:none!important;}
+</style>
+
+<script>
+const RSC_RATE = 1000;
+const RSC_BONUS = 0.10;
+
+function fmtMonto(el){
+  let v = el.value.replace(/\D/g,'');
+  el.value = v ? parseInt(v).toLocaleString('es-CO') : '';
+  updateResumen();
+}
+
+function getRaw(){ return parseInt(document.getElementById('montoDep').value.replace(/\D/g,'')||'0'); }
+
+function updateResumen(){
+  const rsc = getRaw();
+  const box = document.getElementById('resumen-box');
+  if(rsc <= 0){ box.style.display='none'; return; }
+  const cop   = rsc * RSC_RATE;
+  const bonus = cop * RSC_BONUS;
+  const total = cop + bonus;
+  document.getElementById('res-rsc').textContent   = rsc.toLocaleString('es-CO') + ' RSC';
+  document.getElementById('res-cop').textContent   = 'COP$' + cop.toLocaleString('es-CO');
+  document.getElementById('res-bonus').textContent = '+COP$' + bonus.toLocaleString('es-CO');
+  document.getElementById('res-total').textContent = 'COP$' + total.toLocaleString('es-CO');
+  box.style.display = 'block';
+}
+
+function enviarDep(){
+  const v = getRaw();
+  const hint = document.getElementById('mMontoDep');
+  if(!v || v < 50){
+    hint.textContent = 'Mínimo 50 RSC';
+    hint.className = 'field-hint err';
+    return;
+  }
+  hint.textContent = '';
+  document.getElementById('montoDep').value = v;
+  document.getElementById('formDep').submit();
+}
+
+
+</script>
+{% endblock %}

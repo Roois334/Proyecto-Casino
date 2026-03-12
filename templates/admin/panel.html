@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% block title %}Panel Admin — Royal Spin{% endblock %}
+{% block content %}
+<div class="page-header fade-up">
+  <span class="section-tag"> Administrador</span>
+  <h1 class="page-title"> Panel de <span class="gold">Administración</span></h1>
+  <p class="page-subtitle">Control total del casino · {{ dep_pendientes + ret_pendientes }} transacciones pendientes</p>
+</div>
+
+<!-- ALERTAS URGENTES -->
+{% if dep_pendientes > 0 or ret_pendientes > 0 %}
+<div style="background:linear-gradient(135deg,rgba(200,16,46,.15),rgba(180,12,36,.08));border:1.5px solid rgba(200,16,46,.45);border-radius:14px;padding:16px 22px;margin-bottom:24px;display:flex;gap:16px;align-items:center;">
+  <span style="font-size:1.8rem;"></span>
+  <div style="flex:1;">
+    {% if dep_pendientes > 0 %}
+    <div style="color:#f87171;font-weight:600;font-size:.88rem;">
+      {{ dep_pendientes }} depósito(s) esperando aprobación —
+      <a href="/admin/depositos" style="color:var(--dorado2);text-decoration:underline;">Revisar ahora</a>
+    </div>
+    {% endif %}
+    {% if ret_pendientes > 0 %}
+    <div style="color:#f87171;font-weight:600;font-size:.88rem;margin-top:4px;">
+      {{ ret_pendientes }} retiro(s) esperando aprobación —
+      <a href="/admin/retiros" style="color:var(--dorado2);text-decoration:underline;">Revisar ahora</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- SALDO RSC ADMIN -->
+<div class="rsc-admin-banner">
+  <div class="rsc-admin-left">
+    <span class="rsc-admin-coin">🪙</span>
+    <div>
+      <div class="rsc-admin-title">Tu Saldo RoyalCoin</div>
+      <div class="rsc-admin-sub">Este saldo se usa para pagar los depósitos aprobados de los jugadores</div>
+    </div>
+  </div>
+  <div class="rsc-admin-right">
+    <span class="rsc-admin-num">{{ "%.0f"|format(admin_saldo_rsc) }} RSC</span>
+    <span class="rsc-admin-cop">≈ COP${{ (admin_saldo_rsc * 1000)|int|cop }}</span>
+  </div>
+  <form method="POST" action="/admin/recargar-rsc" style="display:flex;gap:8px;align-items:center;">
+    <input type="number" name="cantidad" min="1000" step="1000" placeholder="RSC a agregar"
+      style="width:140px;background:rgba(0,0,0,.4);border:1px solid rgba(201,168,76,.3);border-radius:8px;padding:8px 12px;color:var(--blanco);font-size:.8rem;">
+    <button type="submit" style="background:var(--gd);color:var(--negro);border:none;border-radius:8px;padding:9px 18px;font-weight:800;font-size:.78rem;cursor:pointer;white-space:nowrap;">+ Recargar RSC</button>
+  </form>
+</div>
+
+<!-- KPI STATS -->
+<div class="stats-grid" style="margin-bottom:28px;">
+  <div class="stat-card">
+    <span class="stat-num">{{ total_usuarios }}</span>
+    <span class="stat-label">Jugadores Activos</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num">COP${{ total_depositos|cop }}</span>
+    <span class="stat-label">Total Depositado</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num">COP${{ total_retiros|cop }}</span>
+    <span class="stat-label">Total Retirado</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num" style="color:{% if ganancia_casino >= 0 %}#4ade80{% else %}#f87171{% endif %};">
+      COP${{ ganancia_casino|cop }}
+    </span>
+    <span class="stat-label">Ganancia del Casino</span>
+  </div>
+</div>
+
+<style>
+.rsc-admin-banner {
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
+  background: linear-gradient(135deg, rgba(201,168,76,.12) 0%, rgba(200,16,46,.07) 100%);
+  border: 1.5px solid rgba(201,168,76,.4);
+  border-radius:16px; padding:20px 26px; margin-bottom:24px;
+  box-shadow: 0 0 30px rgba(201,168,76,.12);
+}
+.rsc-admin-left { display:flex; align-items:center; gap:16px; }
+.rsc-admin-coin { font-size:2.6rem; animation: float 3s ease-in-out infinite; }
+.rsc-admin-title { font-family:'Rajdhani',sans-serif; font-size:1.15rem; font-weight:800;
+  background:linear-gradient(135deg,#b8860b,#e8c96a,#c9a84c);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.rsc-admin-sub { font-size:.7rem; color:var(--gris2); margin-top:3px; max-width:320px; }
+.rsc-admin-right { text-align:right; }
+.rsc-admin-num { display:block; font-family:'Rajdhani',sans-serif; font-size:2rem; font-weight:800;
+  background:linear-gradient(135deg,#b8860b,#e8c96a,#c9a84c);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.rsc-admin-cop { display:block; font-size:.75rem; color:var(--gris2); margin-top:2px; }
+</style>
+
+<!-- SECCIONES PRINCIPALES: SOLO DEPOSITOS Y RETIROS -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;">
+
+  <!-- DEPÓSITOS -->
+  <div class="card" style="border-color:rgba(200,16,46,.4);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid rgba(200,16,46,.2);">
+      <div>
+        <div class="card-title" style="margin:0;padding:0;border:none;font-size:1.3rem;"> Depósitos</div>
+        <div style="color:var(--gris2);font-size:.75rem;margin-top:3px;">Gestión de solicitudes de depósito</div>
+      </div>
+      {% if dep_pendientes > 0 %}
+      <span style="background:var(--rojo2);color:white;font-size:.72rem;font-weight:700;padding:4px 12px;border-radius:20px;animation:pulse 2s infinite;">
+        {{ dep_pendientes }} pendiente{{ 's' if dep_pendientes > 1 else '' }}
+      </span>
+      {% else %}
+      <span style="background:rgba(74,222,128,.1);color:#4ade80;font-size:.72rem;font-weight:700;padding:4px 12px;border-radius:20px;">Al día </span>
+      {% endif %}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+      <div style="background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.18);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--rojo3);">{{ dep_pendientes }}</div>
+        <div style="font-size:.65rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Pendientes</div>
+      </div>
+      <div style="background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.15);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:#4ade80;">COP${{ total_depositos|cop }}</div>
+        <div style="font-size:.65rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Total Aprobado</div>
+      </div>
+    </div>
+    <a href="/admin/depositos" class="btn btn-r btn-block" style="padding:13px;font-size:.82rem;">
+      Ver y Gestionar Depósitos →
+    </a>
+  </div>
+
+  <!-- RETIROS -->
+  <div class="card" style="border-color:rgba(201,168,76,.35);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid rgba(201,168,76,.2);">
+      <div>
+        <div class="card-title" style="margin:0;padding:0;border:none;font-size:1.3rem;"> Retiros</div>
+        <div style="color:var(--gris2);font-size:.75rem;margin-top:3px;">Gestión de solicitudes de retiro</div>
+      </div>
+      {% if ret_pendientes > 0 %}
+      <span style="background:rgba(201,168,76,.2);color:var(--dorado2);font-size:.72rem;font-weight:700;padding:4px 12px;border-radius:20px;border:1px solid rgba(201,168,76,.3);">
+        {{ ret_pendientes }} pendiente{{ 's' if ret_pendientes > 1 else '' }}
+      </span>
+      {% else %}
+      <span style="background:rgba(74,222,128,.1);color:#4ade80;font-size:.72rem;font-weight:700;padding:4px 12px;border-radius:20px;">Al día </span>
+      {% endif %}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+      <div style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:var(--dorado2);">{{ ret_pendientes }}</div>
+        <div style="font-size:.65rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Pendientes</div>
+      </div>
+      <div style="background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.15);border-radius:10px;padding:14px;text-align:center;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:2rem;font-weight:700;color:#4ade80;">COP${{ total_retiros|cop }}</div>
+        <div style="font-size:.65rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Total Pagado</div>
+      </div>
+    </div>
+    <a href="/admin/retiros" class="btn btn-d btn-block" style="padding:13px;font-size:.82rem;">
+      Ver y Gestionar Retiros →
+    </a>
+  </div>
+</div>
+
+<!-- GESTIÓN DE JUEGOS -->
+<div class="card" style="margin-bottom:28px;border-color:rgba(201,168,76,.25);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid rgba(201,168,76,.12);">
+    <div>
+      <div class="card-title" style="margin:0;padding:0;border:none;font-size:1.3rem;">Juegos del Casino</div>
+      <div style="color:var(--gris2);font-size:.75rem;margin-top:3px;">Activa o desactiva juegos en tiempo real</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+    {% for j in juegos %}{% if j['tipo'] != 'colores' %}
+    <div id="jcard-{{ j['id'] }}" style="background:linear-gradient(135deg,rgba(14,6,10,.98),rgba(10,4,8,.99));border:1px solid {% if j['activo'] %}rgba(34,197,94,.25){% else %}rgba(107,114,128,.2){% endif %};border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px;transition:border-color .3s;">
+      <div style="font-size:1.8rem;width:44px;height:44px;background:rgba(200,16,46,.08);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        {% if j['tipo']=='slots' %}{% elif j['tipo']=='rueda' %}{% elif j['tipo']=='cartas' %}{% else %}{% endif %}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Rajdhani',sans-serif;font-size:.95rem;font-weight:700;color:var(--blanco);margin-bottom:2px;">{{ j['nombre'] }}</div>
+        <div style="font-size:.65rem;color:var(--gris);">RTP {{ j['rtp'] }}%</div>
+        <div id="jstatus-{{ j['id'] }}" style="font-size:.65rem;font-weight:700;margin-top:3px;color:{% if j['activo'] %}#4ade80{% else %}#f87171{% endif %};">
+          {% if j['activo'] %}● Activo{% else %}● Inactivo{% endif %}
+        </div>
+      </div>
+      <button type="button"
+              id="jbtn-{{ j['id'] }}"
+              data-id="{{ j['id'] }}"
+              data-activo="{{ '1' if j['activo'] else '0' }}"
+              onclick="toggleJuego(this)"
+              style="width:38px;height:22px;border-radius:11px;border:none;cursor:pointer;position:relative;transition:all .3s;
+                     background:{% if j['activo'] %}#22c55e{% else %}rgba(107,114,128,.3){% endif %};">
+        <span id="jknob-{{ j['id'] }}" style="position:absolute;top:3px;{% if j['activo'] %}right:3px{% else %}left:3px{% endif %};width:16px;height:16px;border-radius:50%;background:white;transition:all .3s;"></span>
+      </button>
+    </div>
+    {% endif %}{% endfor %}
+  </div>
+</div>
+
+<script>
+function toggleJuego(btn) {
+  const id = btn.dataset.id;
+  const activo = btn.dataset.activo === '1';
+  const nuevoEstado = !activo;
+
+  // Actualizar UI inmediatamente
+  btn.style.background = nuevoEstado ? '#22c55e' : 'rgba(107,114,128,.3)';
+  const knob = document.getElementById('jknob-' + id);
+  knob.style.right = nuevoEstado ? '3px' : '';
+  knob.style.left = nuevoEstado ? '' : '3px';
+  const card = document.getElementById('jcard-' + id);
+  card.style.borderColor = nuevoEstado ? 'rgba(34,197,94,.25)' : 'rgba(107,114,128,.2)';
+  const status = document.getElementById('jstatus-' + id);
+  status.textContent = nuevoEstado ? '● Activo' : '● Inactivo';
+  status.style.color = nuevoEstado ? '#4ade80' : '#f87171';
+  btn.dataset.activo = nuevoEstado ? '1' : '0';
+  btn.disabled = true;
+
+  // Enviar al servidor
+  fetch('/admin/juego/' + id + '/toggle', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'} })
+    .catch(() => {
+      // Si falla, revertir
+      btn.dataset.activo = activo ? '1' : '0';
+      btn.style.background = activo ? '#22c55e' : 'rgba(107,114,128,.3)';
+      knob.style.right = activo ? '3px' : '';
+      knob.style.left = activo ? '' : '3px';
+      card.style.borderColor = activo ? 'rgba(34,197,94,.25)' : 'rgba(107,114,128,.2)';
+      status.textContent = activo ? '● Activo' : '● Inactivo';
+      status.style.color = activo ? '#4ade80' : '#f87171';
+    })
+    .finally(() => { btn.disabled = false; });
+}
+</script>
+
+<!-- TABLA ÚLTIMOS USUARIOS -->
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div class="card-title" style="margin:0;padding:0;border:none;"> Últimos Jugadores Registrados</div>
+    <a href="/admin/usuarios" class="btn btn-outline btn-sm">Ver todos →</a>
+  </div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Jugador</th>
+          <th>Email</th>
+          <th style="text-align:right;">Saldo</th>
+          <th style="text-align:center;">Estado</th>
+          <th>Registro</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr>
+          <td style="font-weight:600;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--rojo2),var(--rojo3));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.75rem;flex-shrink:0;">
+                {{ u['nombre'][0].upper() }}
+              </div>
+              {{ u['nombre'] }}
+            </div>
+          </td>
+          <td style="color:var(--gris2);">{{ u['email'] }}</td>
+          <td style="text-align:right;font-weight:700;color:var(--dorado2);">COP${{ u['saldo']|cop }}</td>
+          <td style="text-align:center;">
+            {% if u['bloqueado'] %}
+            <span class="badge badge-fail">Bloqueado</span>
+            {% else %}
+            <span class="badge badge-ok">Activo</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--gris2);">{{ u['fecha_registro']|fecha }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Verificar Codigo — Royal Spin{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div class="form-wrap">
+  <div class="form-card">
+    <a href="/forgot-password" class="btn-volver" style="position:absolute;top:18px;left:18px;">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Volver
+    </a>
+    <div class="form-logo"><span class="form-logo-suit"></span> Royal Spin <span class="form-logo-suit"></span></div>
+    <h2>Verificar Codigo</h2>
+    <p class="form-card-sub">Se envio un codigo de 6 digitos a</p>
+    <p style="text-align:center;color:var(--dorado2);font-weight:700;font-size:.95rem;margin-bottom:4px;letter-spacing:.02em;">{{ email }}</p>
+    <div class="form-sep"></div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for c,m in messages %}
+      <div class="alert alert-{{ c }}">
+        <span>{% if c=='success' %}{% elif c=='error' %}{% else %}!{% endif %}</span>
+        {{ m }}
+        <button onclick="this.parentElement.remove()" class="alert-close">×</button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+    <form method="POST" id="formCodigo" novalidate>
+      <input type="hidden" name="email" value="{{ email }}">
+      <label style="font-size:.72rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Codigo de 6 digitos</label>
+      <input type="text" name="codigo" id="inpCodigo" maxlength="6" inputmode="numeric"
+        placeholder="000000" autocomplete="one-time-code" oninput="valCodigo()"
+        style="text-align:center;font-size:2rem;font-weight:900;letter-spacing:10px;font-family:'Courier New',monospace;padding:18px;">
+      <div class="field-hint" id="mCodigo"></div>
+      <button type="button" onclick="enviarCodigo()" class="btn btn-d btn-block" style="margin-top:20px;">Verificar Codigo</button>
+    </form>
+    <div class="form-links">
+      <a href="/forgot-password">No recibi el codigo — Reenviar</a>
+    </div>
+  </div>
+</div>
+<script>
+function valCodigo(){const v=document.getElementById('inpCodigo').value.trim(),el=document.getElementById('mCodigo');if(!v){el.textContent='';el.className='field-hint';return false;}if(!/^\d{6}$/.test(v)){el.textContent='Debe ser exactamente 6 numeros';el.className='field-hint err';return false;}el.textContent='Codigo listo';el.className='field-hint ok';return true;}
+function enviarCodigo(){if(valCodigo())document.getElementById('formCodigo').submit();}
+document.getElementById('formCodigo').addEventListener('keydown',e=>{if(e.key==='Enter')enviarCodigo();});
+</script>
+{% endblock %}

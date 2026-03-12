@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Historial - Casino Royal{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Mi <span class="gold">Historial</span></h1>
+  <p class="page-subtitle">Todas tus transacciones y apuestas</p>
+</div>
+
+<!-- TABS -->
+<div style="display:flex;gap:8px;margin-bottom:24px;border-bottom:2px solid rgba(220,20,60,0.1);padding-bottom:0;">
+  <button onclick="mostrarTab('depositos')" class="tab-btn active" id="tab-depositos">Depósitos ({{ depositos|length }})</button>
+  <button onclick="mostrarTab('retiros')" class="tab-btn" id="tab-retiros">Retiros ({{ retiros|length }})</button>
+  <button onclick="mostrarTab('apuestas')" class="tab-btn" id="tab-apuestas">Apuestas ({{ apuestas|length }})</button>
+  <button onclick="mostrarTab('pnl')" class="tab-btn" id="tab-pnl">📊 Pérdidas & Ganancias</button>
+</div>
+
+<style>
+.tab-btn{padding:10px 20px;background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;font-size:0.85rem;font-weight:600;color:var(--gris);transition:all .2s;margin-bottom:-2px;}
+.tab-btn.active{color:#dc143c;border-bottom-color:#dc143c;}
+.tab-content{display:none;} .tab-content.active{display:block;}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:0.72rem;font-weight:700;text-transform:uppercase;}
+.badge-pendiente{background:rgba(255,193,7,0.15);color:#856404;}
+.badge-aprobado{background:rgba(40,167,69,0.15);color:#1a6630;}
+.badge-rechazado{background:rgba(220,20,60,0.12);color:#dc143c;}
+</style>
+
+<!-- DEPÓSITOS -->
+<div class="tab-content active" id="tab-depositos-content">
+  <div style="background:var(--negro2);border-radius:16px;padding:24px;border:1px solid rgba(201,168,76,0.08);">
+    {% if depositos %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.83rem;">
+        <thead><tr style="background:rgba(220,20,60,0.05);">
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">#</th>
+          <th style="padding:10px 14px;text-align:right;color:var(--gris);">Monto</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Método</th>
+          <th style="padding:10px 14px;text-align:center;color:var(--gris);">Estado</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Fecha</th>
+        </tr></thead>
+        <tbody>
+          {% for d in depositos %}
+          <tr style="border-bottom:1px solid rgba(220,20,60,0.06);">
+            <td style="padding:10px 14px;color:var(--gris);">#{{ d['id'] }}</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#28a745;">+COP${{ d['monto']|cop }}</td>
+            <td style="padding:10px 14px;text-transform:capitalize;">{{ d['metodo'] }}</td>
+            <td style="padding:10px 14px;text-align:center;"><span class="badge badge-{{ d['estado'] }}">{{ d['estado'] }}</span></td>
+            <td style="padding:10px 14px;color:var(--gris);">{{ d['fecha']|fecha(fmt='%Y-%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--gris);text-align:center;padding:30px;">No tienes depósitos. <a href="/depositar" style="color:#dc143c;">Deposita ahora</a></p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- RETIROS -->
+<div class="tab-content" id="tab-retiros-content">
+  <div style="background:var(--negro2);border-radius:16px;padding:24px;border:1px solid rgba(201,168,76,0.08);">
+    {% if retiros %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.83rem;">
+        <thead><tr style="background:rgba(220,20,60,0.05);">
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">#</th>
+          <th style="padding:10px 14px;text-align:right;color:var(--gris);">Monto</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Método</th>
+          <th style="padding:10px 14px;text-align:center;color:var(--gris);">Estado</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Fecha</th>
+        </tr></thead>
+        <tbody>
+          {% for r in retiros %}
+          <tr style="border-bottom:1px solid rgba(220,20,60,0.06);">
+            <td style="padding:10px 14px;color:var(--gris);">#{{ r['id'] }}</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:#dc143c;">-COP${{ r['monto']|cop }}</td>
+            <td style="padding:10px 14px;text-transform:capitalize;">{{ r['metodo'] }}</td>
+            <td style="padding:10px 14px;text-align:center;"><span class="badge badge-{{ r['estado'] }}">{{ r['estado'] }}</span></td>
+            <td style="padding:10px 14px;color:var(--gris);">{{ r['fecha']|fecha(fmt='%Y-%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--gris);text-align:center;padding:30px;">No tienes retiros registrados.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- APUESTAS -->
+<div class="tab-content" id="tab-apuestas-content">
+  <div style="background:var(--negro2);border-radius:16px;padding:24px;border:1px solid rgba(201,168,76,0.08);">
+    {% if apuestas %}
+    <!-- Filter bar -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
+      <span style="font-size:.75rem;color:var(--gris);font-weight:600;text-transform:uppercase;letter-spacing:.08em;">Filtrar por juego:</span>
+      <button class="filter-btn active" onclick="filtrarApuestas(this,'todos')">Todos</button>
+      {% set juegos_vistos = [] %}
+      {% for a in apuestas %}
+        {% if a['juego_nombre'] not in juegos_vistos %}
+          {% set _ = juegos_vistos.append(a['juego_nombre']) %}
+          <button class="filter-btn" onclick="filtrarApuestas(this,'{{ a['juego_nombre'] }}')">{{ a['icono'] }} {{ a['juego_nombre'] }}</button>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.83rem;" id="tablaApuestas">
+        <thead><tr style="background:rgba(220,20,60,0.05);">
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Juego</th>
+          <th style="padding:10px 14px;text-align:right;color:var(--gris);">Apostado</th>
+          <th style="padding:10px 14px;text-align:right;color:var(--gris);">Ganado</th>
+          <th style="padding:10px 14px;text-align:right;color:var(--gris);">Neto</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Resultado</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Fecha</th>
+        </tr></thead>
+        <tbody>
+          {% for a in apuestas %}
+          {% set neto = a['monto_ganado'] - a['monto_apostado'] %}
+          <tr class="apuesta-row" data-juego="{{ a['juego_nombre'] }}" style="border-bottom:1px solid rgba(220,20,60,0.06);">
+            <td style="padding:10px 14px;">{{ a['icono'] }} {{ a['juego_nombre'] }}</td>
+            <td style="padding:10px 14px;text-align:right;color:#dc143c;">COP${{ a['monto_apostado']|cop }}</td>
+            <td style="padding:10px 14px;text-align:right;color:#28a745;font-weight:600;">COP${{ a['monto_ganado']|cop }}</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:{% if neto >= 0 %}#28a745{% else %}#dc143c{% endif %};">
+              {{ "+" if neto >= 0 else "" }}COP${{ neto|cop }}
+            </td>
+            <td style="padding:10px 14px;color:var(--blanco);font-size:0.75rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a['resultado'] }}</td>
+            <td style="padding:10px 14px;color:var(--gris);white-space:nowrap;">{{ a['fecha']|fecha(fmt='%Y-%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div id="noResultsMsg" style="display:none;color:var(--gris);text-align:center;padding:24px;font-size:.88rem;">No hay apuestas para este juego.</div>
+    {% else %}
+    <p style="color:var(--gris);text-align:center;padding:30px;">No has jugado todavía. <a href="/juegos" style="color:#dc143c;">¡Empieza ahora!</a></p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- PÉRDIDAS & GANANCIAS -->
+<div class="tab-content" id="tab-pnl-content">
+  {% set neto_total = (pnl['total_ganado'] - pnl['total_apostado']) if pnl else 0 %}
+  <!-- Resumen Cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;">
+    <div style="background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.2);border-radius:14px;padding:18px 20px;">
+      <div style="font-size:.7rem;color:rgba(74,222,128,.7);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:6px;">Total Ganado</div>
+      <div style="font-size:1.4rem;font-weight:900;color:#4ade80;font-family:'Rajdhani',sans-serif;">COP${{ pnl['suma_ganancias']|cop if pnl else 0 }}</div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.4);margin-top:4px;">{{ pnl['num_ganancias'] if pnl else 0 }} apuestas ganadoras</div>
+    </div>
+    <div style="background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:14px;padding:18px 20px;">
+      <div style="font-size:.7rem;color:rgba(248,113,113,.7);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:6px;">Total Perdido</div>
+      <div style="font-size:1.4rem;font-weight:900;color:#f87171;font-family:'Rajdhani',sans-serif;">COP${{ pnl['suma_perdidas']|cop if pnl else 0 }}</div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.4);margin-top:4px;">{{ pnl['num_perdidas'] if pnl else 0 }} apuestas perdedoras</div>
+    </div>
+    <div style="background:rgba(232,201,106,.07);border:1px solid rgba(232,201,106,.2);border-radius:14px;padding:18px 20px;">
+      <div style="font-size:.7rem;color:rgba(232,201,106,.7);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:6px;">Neto Total</div>
+      <div style="font-size:1.4rem;font-weight:900;font-family:'Rajdhani',sans-serif;color:{% if neto_total >= 0 %}#4ade80{% else %}#f87171{% endif %};">
+        {{ "+" if neto_total >= 0 else "" }}COP${{ neto_total|cop }}
+      </div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.4);margin-top:4px;">{{ pnl['num_empates'] if pnl else 0 }} empates</div>
+    </div>
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 20px;">
+      <div style="font-size:.7rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:6px;">Total Apostado</div>
+      <div style="font-size:1.4rem;font-weight:900;color:#fff;font-family:'Rajdhani',sans-serif;">COP${{ pnl['total_apostado']|cop if pnl else 0 }}</div>
+      <div style="font-size:.75rem;color:rgba(255,255,255,.4);margin-top:4px;">{{ (pnl['num_ganancias'] + pnl['num_perdidas'] + pnl['num_empates']) if pnl else 0 }} apuestas totales</div>
+    </div>
+  </div>
+
+  <!-- Barra visual Ganancias vs Pérdidas -->
+  {% if pnl and (pnl['suma_ganancias'] + pnl['suma_perdidas']) > 0 %}
+  {% set total_pnl = pnl['suma_ganancias'] + pnl['suma_perdidas'] %}
+  {% set pct_gan = (pnl['suma_ganancias'] / total_pnl * 100)|round(1) %}
+  <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:20px 24px;margin-bottom:24px;">
+    <div style="font-size:.75rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:12px;">Ratio Ganancias vs Pérdidas</div>
+    <div style="height:12px;border-radius:6px;overflow:hidden;display:flex;margin-bottom:8px;">
+      <div style="width:{{ pct_gan }}%;background:linear-gradient(90deg,#16a34a,#4ade80);transition:width .5s;"></div>
+      <div style="flex:1;background:linear-gradient(90deg,#c8102e,#f87171);"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:.78rem;font-family:'Rajdhani',sans-serif;font-weight:700;">
+      <span style="color:#4ade80;">✓ {{ pct_gan }}% ganado</span>
+      <span style="color:#f87171;">✗ {{ (100 - pct_gan)|round(1) }}% perdido</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tabla detalle por juego -->
+  <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:20px 24px;">
+    <div style="font-size:.75rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:14px;">Desglose por Apuesta</div>
+    {% if apuestas %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.82rem;">
+        <thead><tr style="background:rgba(220,20,60,.05);">
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Juego</th>
+          <th style="padding:10px 14px;text-align:right;color:var(--gris);">Apostado</th>
+          <th style="padding:10px 14px;text-align:right;color:var(--gris);">Resultado neto</th>
+          <th style="padding:10px 14px;text-align:left;color:var(--gris);">Fecha</th>
+        </tr></thead>
+        <tbody>
+          {% for a in apuestas %}
+          {% set neto = a['monto_ganado'] - a['monto_apostado'] %}
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:10px 14px;">{{ a['icono'] }} {{ a['juego_nombre'] }}</td>
+            <td style="padding:10px 14px;text-align:right;color:rgba(255,255,255,.5);">COP${{ a['monto_apostado']|cop }}</td>
+            <td style="padding:10px 14px;text-align:right;font-weight:700;color:{% if neto > 0 %}#4ade80{% elif neto < 0 %}#f87171{% else %}#e8c96a{% endif %};">
+              {{ "+" if neto > 0 else "" }}COP${{ neto|cop }}
+            </td>
+            <td style="padding:10px 14px;color:var(--gris);white-space:nowrap;">{{ a['fecha']|fecha(fmt='%Y-%m-%d %H:%M') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p style="color:var(--gris);text-align:center;padding:24px;">Sin apuestas registradas aún.</p>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.filter-btn {
+  padding: 6px 14px;
+  background: rgba(220,20,60,.08);
+  border: 1.5px solid rgba(220,20,60,.2);
+  border-radius: 20px;
+  color: var(--gris2);
+  font-size: .75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s;
+  font-family: inherit;
+}
+.filter-btn:hover { background: rgba(220,20,60,.16); border-color: rgba(220,20,60,.4); color: var(--blanco); }
+.filter-btn.active { background: rgba(220,20,60,.25); border-color: #dc143c; color: #fff; }
+</style>
+
+<script>
+function mostrarTab(nombre){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+nombre+'-content').classList.add('active');
+  document.getElementById('tab-'+nombre).classList.add('active');
+}
+function filtrarApuestas(btn, juego){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const rows = document.querySelectorAll('.apuesta-row');
+  let visible = 0;
+  rows.forEach(r=>{
+    const show = juego==='todos' || r.dataset.juego===juego;
+    r.style.display = show ? '' : 'none';
+    if(show) visible++;
+  });
+  const msg = document.getElementById('noResultsMsg');
+  const tabla = document.getElementById('tablaApuestas');
+  if(msg){
+    msg.style.display = visible===0 ? 'block' : 'none';
+    if(tabla) tabla.style.display = visible===0 ? 'none' : '';
+  }
+}
+</script>
+{% endblock %}

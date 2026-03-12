@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Mi Perfil — Royal Spin{% endblock %}
+{% block content %}
+<div class="page-header">
+  <span class="section-tag">&#9824; Jugador</span>
+  <h1 class="page-title">Mi <span class="gold">Perfil</span></h1>
+  <p class="page-subtitle">Gestiona tu informacion y seguridad</p>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for c,m in messages %}<div class="alert alert-{{ c }}">{{ m }}</div>{% endfor %}
+{% endwith %}
+
+{% set nivel = 'Bronce' if user['puntos_vip'] < 500 else ('Plata' if user['puntos_vip'] < 2000 else ('Oro' if user['puntos_vip'] < 5000 else ('Platino' if user['puntos_vip'] < 15000 else 'Diamante'))) %}
+{% set sig = 500 if user['puntos_vip'] < 500 else (2000 if user['puntos_vip'] < 2000 else (5000 if user['puntos_vip'] < 5000 else (15000 if user['puntos_vip'] < 15000 else 99999))) %}
+{% set pct = [(user['puntos_vip'] / sig * 100), 100] | min %}
+
+<!-- PERFIL HEADER — idéntico en estructura al admin -->
+<div class="admin-perfil-header" style="background:linear-gradient(135deg,rgba(200,16,46,.12),rgba(201,168,76,.06),rgba(10,6,14,.95));border-color:rgba(200,16,46,.25);">
+  <div class="admin-avatar-big" style="background:linear-gradient(135deg,#6a0010,#c8102e);">
+    {{ user['nombre'][0].upper() }}
+  </div>
+  <div class="admin-perfil-info">
+    <div class="admin-perfil-nombre">{{ user['nombre'] }}</div>
+    <div class="admin-perfil-email">{{ user['email'] }}</div>
+    <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+      <span class="badge-admin" style="background:rgba(200,16,46,.1);border-color:rgba(200,16,46,.3);color:var(--rojo3);">VIP {{ nivel }}</span>
+      <span class="badge-admin-sub">{{ user['puntos_vip'] }} puntos</span>
+      <!-- ROL BADGE -->
+      {% if user['rol'] == 'admin' %}
+      <span style="
+        display:inline-flex;align-items:center;gap:6px;
+        background:linear-gradient(135deg,rgba(201,168,76,.18),rgba(232,201,106,.08));
+        border:1.5px solid rgba(201,168,76,.5);
+        border-radius:999px;
+        padding:4px 14px 4px 6px;
+        font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+        color:#e8c96a;
+        box-shadow:0 0 12px rgba(201,168,76,.25);
+      ">
+        <span style="
+          width:26px;height:26px;border-radius:50%;
+          background:linear-gradient(135deg,#c9a84c,#e8c96a);
+          display:inline-flex;align-items:center;justify-content:center;
+          font-size:.85rem;color:#0a060e;font-weight:900;flex-shrink:0;
+          box-shadow:0 0 8px rgba(201,168,76,.6);
+        ">👑</span>
+        Admin
+      </span>
+      {% else %}
+      <span style="
+        display:inline-flex;align-items:center;gap:6px;
+        background:linear-gradient(135deg,rgba(201,168,76,.15),rgba(180,140,30,.08));
+        border:1.5px solid rgba(201,168,76,.4);
+        border-radius:999px;
+        padding:6px 18px;
+        font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+        color:var(--dorado2);
+        box-shadow:0 0 12px rgba(201,168,76,.2);
+      ">
+        Jugador
+      </span>
+      {% endif %}
+    </div>
+    <div style="margin-top:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--gris);margin-bottom:4px;">
+        <span>{{ user['puntos_vip'] }} pts</span><span>{{ sig }} pts — Sig. nivel</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:{{ pct }}%"></div></div>
+    </div>
+  </div>
+  <div class="admin-perfil-stats-mini">
+    <div>
+      <div style="font-family:'Rajdhani',sans-serif;font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,#c9a84c,#e8c96a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">{{ "%.0f"|format(user['saldo']/1000) }} RSC</div>
+      <div style="font-size:.65rem;color:var(--dorado2);margin-bottom:1px;">COP${{ user['saldo']|cop }}</div>
+      <div style="font-size:.68rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;">Billetera</div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card" style="border-color:rgba(201,168,76,.3);background:linear-gradient(135deg,rgba(201,168,76,.07),rgba(200,16,46,.04));">
+    <span class="stat-num" style="background:var(--gd);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">{{ "%.0f"|format(user['saldo']/1000) }} RSC</span>
+    <span class="stat-label">🪙 Mi Billetera</span>
+    <span style="font-size:.7rem;color:var(--gris2);margin-top:2px;">COP${{ user['saldo']|cop }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num">{{ stats['total_apuestas'] or 0 }}</span>
+    <span class="stat-label">Apuestas Realizadas</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num">COP${{ (stats['total_ganado'] or 0)|cop }}</span>
+    <span class="stat-label">Total Ganado</span>
+  </div>
+  {% set balance = (stats['total_ganado'] or 0) - (stats['total_apostado'] or 0) %}
+  <div class="stat-card">
+    <span class="stat-num" style="{% if balance >= 0 %}color:#4ade80{% else %}color:#f87171{% endif %};">
+      {{ '+' if balance >= 0 else '' }}COP${{ balance|cop }}
+    </span>
+    <span class="stat-label">Balance Neto</span>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+  <!-- INFORMACION PERSONAL -->
+  <div class="card">
+    <div class="card-title">Informacion Personal</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(200,16,46,.1);">
+        <span style="color:var(--gris);font-size:.82rem;">Nombre</span>
+        <span style="font-weight:600;color:var(--blanco);">{{ user['nombre'] }}</span>
+      </div>
+
+      <!-- EMAIL + CAMBIO — igual que admin -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(200,16,46,.1);">
+        <span style="color:var(--gris);font-size:.82rem;">Email</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-weight:600;color:var(--dorado2);">{{ user['email'] }}</span>
+          <button type="button" onclick="toggleEmailForm()" class="btn btn-outline-r" style="font-size:.6rem;padding:3px 8px;">Cambiar</button>
+        </div>
+      </div>
+      <div id="emailChangeForm" style="display:none;background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.25);border-radius:10px;padding:14px;margin:2px 0;">
+        <div style="font-size:.75rem;font-weight:700;color:var(--rojo3);margin-bottom:8px;">Cambiar Correo Electronico</div>
+        <p style="font-size:.72rem;color:var(--gris2);margin-bottom:10px;">Se enviara un codigo de verificacion a tu correo actual para confirmar el cambio.</p>
+        <form method="POST" action="/perfil/solicitar-cambio-email">
+          <input type="email" name="nuevo_email" placeholder="Nuevo correo electronico"
+            style="width:100%;padding:9px 12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.3);border-radius:8px;color:var(--blanco);font-size:.85rem;outline:none;margin-bottom:8px;">
+          <button type="submit" class="btn btn-r btn-sm" style="width:100%;">Enviar Codigo de Verificacion</button>
+        </form>
+        <button type="button" onclick="toggleEmailForm()" style="background:none;border:none;color:var(--gris);font-size:.7rem;margin-top:6px;cursor:pointer;width:100%;text-align:center;">Cancelar</button>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(200,16,46,.1);">
+        <span style="color:var(--gris);font-size:.82rem;">Nivel VIP</span>
+        <span style="font-weight:700;color:var(--dorado2);">{{ nivel }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 0;">
+        <span style="color:var(--gris);font-size:.82rem;">Miembro desde</span>
+        <span style="font-weight:600;color:var(--blanco);">{{ user['fecha_registro']|fecha }}</span>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <form method="POST" action="/perfil/actualizar" id="formPerfil" novalidate>
+        <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Editar Nombre</label>
+        <input type="text" name="nombre" id="pNombre" value="{{ user['nombre'] }}"
+          style="width:100%;padding:10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.9rem;outline:none;font-family:'DM Sans',sans-serif;margin-bottom:8px;">
+        <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Descripcion (opcional)</label>
+        <textarea name="descripcion" rows="2" placeholder="Algo sobre ti..."
+          style="width:100%;padding:10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.85rem;outline:none;font-family:'DM Sans',sans-serif;resize:vertical;margin-bottom:10px;">{{ user['descripcion'] or '' }}</textarea>
+        <button type="button" onclick="document.getElementById('formPerfil').submit()" class="btn btn-outline btn-sm" style="width:100%;">Guardar Cambios</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SEGURIDAD + ACCIONES -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <!-- Cambio contraseña — idéntico en estructura al admin -->
+    <div class="card">
+      <div class="card-title">Cambiar Contrasena</div>
+      <form method="POST" action="/perfil/cambiar-password" id="formPass" novalidate>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Contrasena Actual</label>
+          <div style="position:relative;">
+            <input type="password" name="password_actual" id="pPassAct" placeholder="Tu contrasena actual"
+              style="width:100%;padding:10px 44px 10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.9rem;outline:none;font-family:'DM Sans',sans-serif;">
+            <button type="button" class="toggle-pass" onclick="pToggle('pPassAct','pIAct')">
+              <svg id="pIAct" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Nueva Contrasena</label>
+          <div style="position:relative;">
+            <input type="password" name="password_nueva" id="pPassNew" placeholder="Minimo 6 caracteres" oninput="pValNew()"
+              style="width:100%;padding:10px 44px 10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.9rem;outline:none;font-family:'DM Sans',sans-serif;">
+            <button type="button" class="toggle-pass" onclick="pToggle('pPassNew','pINew')">
+              <svg id="pINew" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field-msg" id="mPassNew"></div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:.72rem;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:6px;">Confirmar Nueva</label>
+          <div style="position:relative;">
+            <input type="password" name="confirmar_nueva" id="pPassConf" placeholder="Repite la nueva" oninput="pValConf()"
+              style="width:100%;padding:10px 44px 10px 14px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.2);border-radius:10px;color:var(--blanco);font-size:.9rem;outline:none;font-family:'DM Sans',sans-serif;">
+            <button type="button" class="toggle-pass" onclick="pToggle('pPassConf','pIConf')">
+              <svg id="pIConf" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="field-msg" id="mPassConf"></div>
+        </div>
+        <button type="button" onclick="pEnviarPass()" class="btn btn-r btn-block">Cambiar Contrasena</button>
+        <div style="background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.15);border-radius:8px;padding:8px;margin-top:8px;font-size:.7rem;color:var(--gris2);">
+          Por seguridad, se enviara un codigo de verificacion a tu correo para confirmar el cambio.
+        </div>
+      </form>
+    </div>
+
+    <!-- ACCIONES RAPIDAS -->
+    <div class="card">
+      <div class="card-title">Acciones Rapidas</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <a href="/juegos"    class="btn btn-r btn-block btn-sm">Ir a Juegos</a>
+        <a href="/depositar" class="btn btn-d btn-block btn-sm">Depositar Fondos</a>
+        <a href="/retirar"   class="btn btn-d btn-block btn-sm">Retirar Fondos</a>
+        <a href="/historial" class="btn btn-outline btn-block btn-sm">Ver Historial</a>
+        <a href="/logout"    class="btn btn-outline-r btn-block btn-sm" onclick="return confirm('Cerrar sesion?')">Cerrar Sesion</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.toggle-pass { position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gris);cursor:pointer;padding:4px; }
+.toggle-pass:hover { color:var(--dorado2); }
+.field-msg { font-size:.72rem;min-height:16px;margin-top:4px; }
+.field-msg.error { color:#f87171; }
+.field-msg.ok { color:#4ade80; }
+</style>
+<script>
+function toggleEmailForm(){
+  const f = document.getElementById('emailChangeForm');
+  f.style.display = f.style.display === 'none' ? '' : 'none';
+}
+function pToggle(inputId, iconId) {
+  const inp = document.getElementById(inputId), ico = document.getElementById(iconId);
+  if(inp.type === 'password'){ inp.type = 'text'; ico.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'; }
+  else { inp.type = 'password'; ico.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'; }
+}
+function setMsg(id, msg, type){ const el=document.getElementById(id); if(el){el.textContent=msg;el.className='field-msg'+(msg?' '+type:'');} }
+function pValNew(){
+  const v=document.getElementById('pPassNew').value;
+  if(v.length<6&&v){ setMsg('mPassNew','Minimo 6 caracteres','error'); return false; }
+  if(v&&!/[A-Z]/.test(v)){ setMsg('mPassNew','Al menos 1 mayuscula','error'); return false; }
+  if(v&&!/\d/.test(v)){ setMsg('mPassNew','Al menos 1 numero','error'); return false; }
+  if(v) setMsg('mPassNew','Valida','ok'); return true;
+}
+function pValConf(){
+  const p=document.getElementById('pPassNew').value, p2=document.getElementById('pPassConf').value;
+  if(p!==p2){ setMsg('mPassConf','No coinciden','error'); return false; }
+  if(p2) setMsg('mPassConf','Coinciden','ok'); return true;
+}
+function pEnviarPass(){
+  if(!document.getElementById('pPassAct').value){ alert('Ingresa tu contrasena actual'); return; }
+  if(!pValNew()) return;
+  if(!pValConf()) return;
+  document.getElementById('formPass').submit();
+}
+</script>
+{% endblock %}

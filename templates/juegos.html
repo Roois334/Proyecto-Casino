@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% block title %}Juegos — Royal Spin{% endblock %}
+{% block content %}
+
+<div class="games-hero fade-up">
+  <div class="games-hero-bg">
+    <div class="gh-orb gh-orb1"></div>
+    <div class="gh-orb gh-orb2"></div>
+    <div class="gh-orb gh-orb3"></div>
+  </div>
+  <div class="games-hero-content">
+    <span class="section-tag">🎰 Casino</span>
+    <h1 class="page-title" style="font-size:clamp(2rem,5vw,3.2rem);margin-bottom:10px;">
+      Elige tu <span class="gold">Juego</span>
+    </h1>
+    <p class="page-subtitle">Probabilidades reales · Resultados en vivo · Gana ahora</p>
+  </div>
+</div>
+
+<div class="games-showcase-grid">
+  {% for j in juegos %}
+  <a href="/juego/{{ j['id'] }}" class="gsc-card fade-up" style="animation-delay:{{ (loop.index0 * 100)|string }}ms;">
+
+    <div class="gsc-glow"></div>
+    <div class="gsc-bg-num">{{ j['icono'] }}</div>
+
+    <div class="gsc-top">
+      <span class="gsc-rtp-badge">{{ j['rtp'] }}% RTP</span>
+      {% if j['nombre'] == 'Blackjack' %}
+        <span class="gsc-tag-featured">⭐ Mayor RTP</span>
+      {% elif j['nombre'] == 'Tragamonedas' %}
+        <span class="gsc-tag-hot">🔥 Hot</span>
+      {% elif j['nombre'] == 'Ruleta' %}
+        <span class="gsc-tag-mult">×36</span>
+      {% else %}
+        <span class="gsc-tag-mult">×5</span>
+      {% endif %}
+    </div>
+
+    <div class="gsc-stage">
+      {% if j['nombre'] == 'Tragamonedas' %}
+        <div class="gsc-slots">
+          <div class="gsc-reel">🍒</div>
+          <div class="gsc-reel-div"></div>
+          <div class="gsc-reel" style="animation-delay:.2s">💎</div>
+          <div class="gsc-reel-div"></div>
+          <div class="gsc-reel" style="animation-delay:.4s">7️⃣</div>
+        </div>
+        <div class="gsc-stage-label" style="color:var(--dorado2);text-shadow:0 0 20px rgba(201,168,76,.7);">✦ JACKPOT ×100 ✦</div>
+
+      {% elif j['nombre'] == 'Ruleta' %}
+        <div class="gsc-ruleta-wrap">
+          <div class="gsc-ruleta-disc">
+            <div class="gsc-rsec gsc-rsec1"></div>
+            <div class="gsc-rsec gsc-rsec2"></div>
+            <div class="gsc-rsec gsc-rsec3"></div>
+            <div class="gsc-rsec gsc-rsec4"></div>
+            <div class="gsc-rsec gsc-rsec5"></div>
+            <div class="gsc-rsec gsc-rsec6"></div>
+            <div class="gsc-ruleta-center">
+              <span class="gsc-ruleta-num">17</span>
+            </div>
+          </div>
+          <div class="gsc-ruleta-ball"></div>
+          <div class="gsc-ruleta-pin">▼</div>
+        </div>
+        <div class="gsc-chips-row">
+          <span class="gsc-chip gsc-chip-r">ROJO</span>
+          <span class="gsc-chip gsc-chip-n">NEGRO</span>
+          <span class="gsc-chip gsc-chip-g">PAR</span>
+        </div>
+
+      {% elif j['nombre'] == 'Blackjack' %}
+        <div class="gsc-bj-table">
+          <div class="gsc-bj-side">
+            <span class="gsc-bj-lbl">CRUPIER</span>
+            <div class="gsc-bj-hand">
+              <div class="pcard pcard-red">K<small>♥</small></div>
+              <div class="pcard pcard-back">?</div>
+            </div>
+          </div>
+          <div class="gsc-vs">VS</div>
+          <div class="gsc-bj-side">
+            <span class="gsc-bj-lbl">TÚ</span>
+            <div class="gsc-bj-hand">
+              <div class="pcard pcard-ace">A<small>♠</small></div>
+              <div class="pcard pcard-red" style="margin-left:-8px;transform:rotate(5deg);">J<small>♦</small></div>
+            </div>
+          </div>
+        </div>
+        <div class="gsc-bj-result">💥 BLACKJACK — ×2.5</div>
+
+      {% else %}
+        <div class="gsc-dados-wrap">
+          <span class="gsc-dado">⚄</span>
+          <span class="gsc-dado gsc-dado2">⚂</span>
+        </div>
+        <div class="gsc-stage-label">GANA ×5 TU APUESTA</div>
+      {% endif %}
+    </div>
+
+    <div class="gsc-body">
+      <div class="gsc-nombre {% if j['nombre'] == 'Blackjack' or j['nombre'] == 'Ruleta' %}gsc-nombre-gold{% endif %}">
+        {{ j['nombre'] }}
+      </div>
+      <div class="gsc-desc">{{ j['descripcion'] }}</div>
+    </div>
+
+    <div class="gsc-footer">
+      <div class="gsc-min">Desde <strong>COP${{ j['apuesta_minima']|cop }}</strong></div>
+      <div class="gsc-play-btn {% if j['nombre'] == 'Blackjack' %}gsc-play-gold{% endif %}">
+        Jugar <span class="gsc-arr">→</span>
+      </div>
+    </div>
+
+  </a>
+  {% endfor %}
+</div>
+
+<style>
+/* ── HERO ── */
+.games-hero {
+  position:relative; overflow:hidden;
+  padding:48px 52px 36px; margin-bottom:8px;
+}
+.games-hero-bg { position:absolute; inset:0; pointer-events:none; }
+.gh-orb { position:absolute; border-radius:50%; filter:blur(90px); }
+.gh-orb1 { width:500px;height:300px;top:-80px;left:-100px;background:radial-gradient(circle,rgba(200,16,46,.18),transparent 70%); }
+.gh-orb2 { width:400px;height:300px;top:-60px;right:-80px;background:radial-gradient(circle,rgba(201,168,76,.1),transparent 70%); }
+.gh-orb3 { width:300px;height:200px;bottom:0;left:40%;background:radial-gradient(circle,rgba(200,16,46,.07),transparent 70%);animation:float 7s ease-in-out infinite; }
+.games-hero-content { position:relative; z-index:1; }
+
+/* ── GRID ── */
+.games-showcase-grid {
+  display:grid;
+  grid-template-columns: repeat(4,1fr);
+  gap:20px;
+  padding:0 52px 60px;
+  max-width:1400px;
+  margin:0 auto;
+}
+
+/* ── BASE CARD ── */
+.gsc-card {
+  position:relative; overflow:hidden;
+  border-radius:24px;
+  border:1px solid rgba(200,16,46,.22);
+  background:linear-gradient(160deg, rgba(20,8,14,.97) 0%, rgba(10,4,10,.99) 100%);
+  text-decoration:none;
+  display:flex; flex-direction:column; gap:14px;
+  padding:20px 18px 18px;
+  transition:transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s, border-color .35s;
+  cursor:pointer;
+}
+.gsc-card:hover {
+  transform:translateY(-10px) scale(1.015);
+  border-color:rgba(200,16,46,.65);
+  box-shadow:0 32px 80px rgba(0,0,0,.65), 0 0 50px rgba(180,12,36,.25);
+}
+
+/* Glow overlay */
+.gsc-glow {
+  position:absolute; top:-80px; right:-80px;
+  width:240px;height:240px;border-radius:50%;
+  background:radial-gradient(circle,rgba(200,16,46,.18),transparent 70%);
+  pointer-events:none; filter:blur(40px);
+  transition:opacity .4s;
+}
+.gsc-card:hover .gsc-glow { opacity:1.5; }
+
+/* BG watermark icon */
+.gsc-bg-num {
+  position:absolute; bottom:-15px; right:-10px;
+  font-size:7.5rem; opacity:.05; pointer-events:none;
+  transform:rotate(-12deg);
+  transition:transform .4s, opacity .4s;
+}
+.gsc-card:hover .gsc-bg-num { transform:rotate(-7deg) scale(1.1); opacity:.1; }
+
+/* ── TOP ROW ── */
+.gsc-top { display:flex; justify-content:space-between; align-items:center; margin-top:4px; }
+.gsc-rtp-badge {
+  font-size:.58rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+  background:rgba(200,16,46,.12); border:1px solid rgba(200,16,46,.35);
+  color:var(--rojo3); padding:3px 10px; border-radius:20px;
+}
+.gsc-tag-featured {
+  font-size:.58rem; font-weight:800;
+  background:rgba(201,168,76,.2); border:1px solid rgba(201,168,76,.5);
+  color:var(--dorado2); padding:3px 10px; border-radius:20px;
+}
+.gsc-tag-hot {
+  font-size:.58rem; font-weight:800; color:#ff6b35;
+  background:rgba(255,107,53,.12); border:1px solid rgba(255,107,53,.3);
+  padding:3px 10px; border-radius:20px;
+}
+.gsc-tag-mult {
+  font-family:'Rajdhani',sans-serif; font-size:.9rem; font-weight:900;
+  color:var(--dorado2);
+}
+
+/* ── STAGE ── */
+.gsc-stage {
+  background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.04);
+  border-radius:16px; padding:18px 12px;
+  display:flex; flex-direction:column; align-items:center;
+  gap:10px; min-height:130px; justify-content:center;
+  position:relative; overflow:hidden;
+}
+
+/* SLOTS */
+.gsc-slots { display:flex; align-items:center; gap:4px;
+  background:rgba(0,0,0,.5); border:1px solid rgba(200,16,46,.2);
+  border-radius:12px; padding:8px 10px; }
+.gsc-reel {
+  width:38px; height:42px; display:flex; align-items:center; justify-content:center;
+  font-size:1.5rem; border-radius:6px;
+  background:rgba(0,0,0,.6); border:1px solid rgba(200,16,46,.2);
+  animation:reelPop 2.2s ease-in-out infinite;
+}
+@keyframes reelPop { 0%,100%{transform:translateY(0)} 20%{transform:translateY(-7px)} 40%{transform:translateY(0)} 60%{transform:translateY(-4px)} 80%{transform:translateY(0)} }
+.gsc-reel-div { width:2px; height:28px; background:rgba(255,255,255,.06); border-radius:2px; }
+.gsc-stage-label {
+  font-family:'Rajdhani',sans-serif; font-size:.7rem; font-weight:900;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--dorado2);
+  animation:glow-d 1.8s ease-in-out infinite;
+}
+
+/* RULETA */
+.gsc-ruleta-wrap { position:relative; width:84px; height:84px; }
+.gsc-ruleta-disc {
+  width:84px; height:84px; border-radius:50%;
+  border:3px solid rgba(201,168,76,.55);
+  animation:spin 5s linear infinite;
+  box-shadow:0 0 24px rgba(201,168,76,.3), inset 0 0 20px rgba(0,0,0,.5);
+  overflow:hidden; position:relative;
+}
+.gsc-rsec { position:absolute; width:50%; height:50%; top:0; right:0; transform-origin:0% 100%; }
+.gsc-rsec1 { background:rgba(200,16,46,.85); transform:rotate(0deg); }
+.gsc-rsec2 { background:rgba(15,15,15,.95); transform:rotate(60deg); }
+.gsc-rsec3 { background:rgba(200,16,46,.85); transform:rotate(120deg); }
+.gsc-rsec4 { background:rgba(15,15,15,.95); transform:rotate(180deg); }
+.gsc-rsec5 { background:rgba(200,16,46,.85); transform:rotate(240deg); }
+.gsc-rsec6 { background:rgba(40,160,60,.7); transform:rotate(300deg); }
+.gsc-ruleta-center {
+  position:absolute; inset:20%; border-radius:50%;
+  background:rgba(8,4,8,.95); border:2px solid rgba(201,168,76,.4);
+  display:flex; align-items:center; justify-content:center; z-index:2;
+}
+.gsc-ruleta-num { font-family:'Rajdhani',sans-serif; font-size:1rem; font-weight:900; color:var(--dorado2); }
+.gsc-ruleta-ball {
+  position:absolute; width:8px; height:8px; border-radius:50%;
+  background:#fff; top:6px; left:50%; transform:translateX(-50%);
+  box-shadow:0 0 8px #fff; z-index:3;
+  animation:ballOrbit 5s linear infinite;
+}
+.gsc-ruleta-pin { position:absolute; top:-5px; left:50%; transform:translateX(-50%); font-size:.7rem; color:var(--dorado2); z-index:4; }
+.gsc-chips-row { display:flex; gap:6px; }
+.gsc-chip { font-size:.56rem; font-weight:800; padding:3px 9px; border-radius:20px; }
+.gsc-chip-r { background:rgba(200,16,46,.25); color:var(--rojo3); border:1px solid rgba(200,16,46,.4); }
+.gsc-chip-n { background:rgba(255,255,255,.06); color:var(--gris2); border:1px solid rgba(255,255,255,.1); }
+.gsc-chip-g { background:rgba(201,168,76,.15); color:var(--dorado2); border:1px solid rgba(201,168,76,.3); }
+
+/* BLACKJACK */
+.gsc-bj-table { display:flex; align-items:center; gap:12px; }
+.gsc-bj-side { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.gsc-bj-lbl { font-size:.5rem; font-weight:700; letter-spacing:.1em; color:var(--gris); text-transform:uppercase; }
+.gsc-bj-hand { display:flex; }
+.pcard {
+  width:36px; height:52px; border-radius:6px;
+  background:#fff; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  font-family:'Rajdhani',sans-serif; font-size:1rem; font-weight:900;
+  box-shadow:2px 4px 12px rgba(0,0,0,.6);
+}
+.pcard small { font-size:.55rem; display:block; line-height:1; }
+.pcard-red { color:#c8102e; }
+.pcard-ace {
+  color:#1a0a0e;
+  background:linear-gradient(135deg,#fff 60%,#ffe8cc);
+  border:2px solid rgba(201,168,76,.6) !important;
+  box-shadow:0 0 16px rgba(201,168,76,.4), 2px 4px 12px rgba(0,0,0,.6) !important;
+}
+.pcard-back {
+  background:linear-gradient(135deg,#1a0a12,#2a0818);
+  border:1px solid rgba(200,16,46,.4) !important;
+  color:var(--rojo3); font-size:1.1rem;
+}
+.gsc-vs { font-family:'Rajdhani',sans-serif; font-size:.65rem; font-weight:900; color:var(--gris); letter-spacing:.1em; }
+.gsc-bj-result {
+  font-family:'Rajdhani',sans-serif; font-size:.75rem; font-weight:900;
+  letter-spacing:.1em; color:var(--dorado2);
+  background:rgba(201,168,76,.1); border:1px solid rgba(201,168,76,.3);
+  padding:4px 14px; border-radius:20px;
+  animation:glow-d 2s ease-in-out infinite;
+}
+
+/* DADOS */
+.gsc-dados-wrap { display:flex; gap:12px; align-items:center; }
+.gsc-dado { font-size:2.8rem; filter:drop-shadow(0 6px 16px rgba(201,168,76,.35)); animation:dadoShk 3.5s ease-in-out infinite; }
+.gsc-dado2 { font-size:2rem; opacity:.65; animation-delay:.7s; animation-direction:reverse; }
+@keyframes dadoShk { 0%,80%,100%{transform:rotate(0deg) translateY(0)} 85%{transform:rotate(-18deg) translateY(-8px)} 90%{transform:rotate(12deg) translateY(-4px)} 95%{transform:rotate(-6deg) translateY(-2px)} }
+
+/* ── BODY ── */
+.gsc-body { display:flex; flex-direction:column; gap:6px; flex:1; }
+.gsc-nombre {
+  font-family:'Rajdhani',sans-serif; font-size:1.3rem; font-weight:800;
+  letter-spacing:.03em; color:var(--blanco);
+}
+.gsc-nombre-gold {
+  background:var(--gd); -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent; background-clip:text;
+}
+.gsc-desc { font-size:.73rem; color:var(--gris2); line-height:1.65; }
+
+/* ── FOOTER ── */
+.gsc-footer {
+  display:flex; justify-content:space-between; align-items:center;
+  padding-top:12px; border-top:1px solid rgba(255,255,255,.05);
+  margin-top:auto;
+}
+.gsc-min { font-size:.62rem; color:var(--gris); }
+.gsc-min strong { color:var(--gris2); }
+.gsc-play-btn {
+  font-size:.7rem; font-weight:800; letter-spacing:.05em;
+  background:rgba(200,16,46,.15); border:1px solid rgba(200,16,46,.35);
+  color:var(--rojo3); padding:6px 14px; border-radius:20px;
+  transition:all .25s;
+}
+.gsc-card:hover .gsc-play-btn { background:rgba(200,16,46,.3); border-color:rgba(200,16,46,.7); }
+.gsc-play-gold {
+  background:var(--gd) !important; border:none !important;
+  color:var(--negro) !important; box-shadow:0 4px 14px rgba(201,168,76,.35);
+}
+.gsc-card:hover .gsc-play-gold { box-shadow:0 6px 22px rgba(201,168,76,.55); }
+.gsc-arr { display:inline-block; transition:transform .25s; }
+.gsc-card:hover .gsc-arr { transform:translateX(4px); }
+
+@media(max-width:1100px){ .games-showcase-grid{grid-template-columns:repeat(2,1fr); padding:0 24px 40px;} .games-hero{padding:36px 24px 24px;} }
+@media(max-width:600px) { .games-showcase-grid{grid-template-columns:1fr; padding:0 16px 32px;} }
+</style>
+
+<script>
+// Cambiar número ruleta cada segundo
+(function(){
+  const el = document.querySelector('.gsc-ruleta-num');
+  if(el) setInterval(()=>{ el.textContent = Math.floor(Math.random()*37); }, 1100);
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Reportes — Royal Spin Admin{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;"><a href="/admin" class="btn-volver"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Panel</a></div>
+<div class="page-header">
+  <span class="section-tag"> Administrador</span>
+  <h1 class="page-title">Reportes & <span class="gold">Estadísticas</span></h1>
+  <p class="page-subtitle">Análisis de rendimiento en tiempo real del casino</p>
+</div>
+
+<!-- KPIs GLOBALES -->
+<div class="stats-grid" style="margin-bottom:28px;">
+  <div class="stat-card">
+    <span class="stat-num" style="color:#4ade80;">COP${{ total_apostado_global|cop }}</span>
+    <span class="stat-label">Total Apostado</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num" style="color:var(--rojo3);">COP${{ total_ganado_global|cop }}</span>
+    <span class="stat-label">Total Pagado</span>
+  </div>
+  <div class="stat-card">
+    {% set ganancia_neta = total_apostado_global - total_ganado_global %}
+    <span class="stat-num" style="color:{% if ganancia_neta >= 0 %}#4ade80{% else %}#f87171{% endif %};">COP${{ ganancia_neta|cop }}</span>
+    <span class="stat-label">Ganancia Neta Casino</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num">COP${{ total_deps|cop }}</span>
+    <span class="stat-label">Depósitos Aprobados</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num" style="color:var(--dorado2);">COP${{ total_rets|cop }}</span>
+    <span class="stat-label">Retiros Aprobados</span>
+  </div>
+</div>
+
+<!-- GRÁFICOS ROW 1 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;">
+  <div class="card">
+    <div class="card-title"> Volumen de Apuestas — Últimos 7 días</div>
+    <div style="position:relative;height:240px;">
+      <canvas id="chartApuestaDiaria"></canvas>
+    </div>
+    <div class="chart-conclusion" id="concl-volumen">
+      <div class="concl-text" id="concl-volumen-text">Volumen total apostado por día. Los días con más actividad se destacan arriba.</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"> Distribución por Juego</div>
+    <div style="position:relative;height:240px;">
+      <canvas id="chartJuegoPie"></canvas>
+    </div>
+    <div class="chart-conclusion" id="concl-pie">
+      <div class="concl-text" id="concl-pie-text">Proporción de apuestas por juego. El sector más grande concentra más dinero de los jugadores.</div>
+    </div>
+  </div>
+</div>
+
+<!-- GRÁFICOS ROW 2 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;">
+  <div class="card">
+    <div class="card-title"> Apostado vs Ganado por Juego</div>
+    <div style="position:relative;height:240px;">
+      <canvas id="chartJuegoBar"></canvas>
+    </div>
+    <div class="chart-conclusion" id="concl-bar">
+      <div class="concl-text" id="concl-bar-text">Barra roja: total apostado. Barra dorada: pagado a jugadores. La diferencia es margen del casino.</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"> Nuevos Jugadores — Últimos 7 días</div>
+    <div style="position:relative;height:240px;">
+      <canvas id="chartRegistros"></canvas>
+    </div>
+    <div class="chart-conclusion" id="concl-reg">
+      <div class="concl-text" id="concl-reg-text">Registros diarios de nuevos jugadores en los últimos 7 días.</div>
+    </div>
+  </div>
+</div>
+
+<!-- TABLAS -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px;">
+  <div class="card">
+    <div class="card-title"> Detalle por Juego</div>
+    {% for j in apuestas_por_juego %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(200,16,46,.08);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.3rem;">{{ j['icono'] }}</span>
+        <div>
+          <div style="font-weight:700;font-size:.88rem;color:var(--blanco);">{{ j['nombre'] }}</div>
+          <div style="font-size:.7rem;color:var(--gris);">{{ j['total_apuestas'] }} apuestas</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:var(--dorado2);font-size:.82rem;">COP${{ j['total_apostado']|cop }}</div>
+        <div style="font-size:.7rem;color:{% if j['ganancia_casino'] >= 0 %}#4ade80{% else %}#f87171{% endif %};">
+          Ganancia: COP${{ j['ganancia_casino']|cop }}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <p style="color:var(--gris);text-align:center;padding:20px 0;">Sin apuestas registradas aún.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-title"> Top Jugadores</div>
+    {% for j in top_jugadores %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid rgba(200,16,46,.08);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:.9rem;font-weight:800;min-width:24px;color:{% if loop.index==1 %}#ffd700{% elif loop.index==2 %}#c0c0c0{% elif loop.index==3 %}#cd7f32{% else %}var(--gris){% endif %};">#{{ loop.index }}</span>
+        <div>
+          <div style="font-weight:600;font-size:.84rem;color:var(--blanco);">{{ j['nombre'] }}</div>
+          <div style="font-size:.68rem;color:var(--gris);">{{ j['total_apuestas'] }} apuestas · {{ j['puntos_vip'] }} pts VIP</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:var(--dorado2);font-size:.82rem;">COP${{ j['total_apostado']|cop }}</div>
+        <div style="font-size:.7rem;color:var(--gris);">Saldo: COP${{ j['saldo']|cop }}</div>
+      </div>
+    </div>
+    {% else %}
+    <p style="color:var(--gris);text-align:center;padding:20px 0;">Sin datos de jugadores.</p>
+    {% endfor %}
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DIAS_LABELS = {{ dias_labels|safe }};
+const DIAS_APOSTADO = {{ dias_apostado|safe }};
+const DIAS_GANADO = {{ dias_ganado|safe }};
+const REG_LABELS = {{ reg_labels|safe }};
+const REG_TOTALES = {{ reg_totales|safe }};
+const juegosNombres = {{ apuestas_por_juego|map(attribute='nombre')|list|tojson }};
+const juegosApuestados = {{ apuestas_por_juego|map(attribute='total_apostado')|list|tojson }};
+const juegosGanados = {{ apuestas_por_juego|map(attribute='total_ganado')|list|tojson }};
+
+Chart.defaults.color = '#968fa8';
+Chart.defaults.font.family = 'DM Sans, sans-serif';
+
+const gridColor = 'rgba(255,255,255,.05)';
+const tickColor = '#6a6078';
+const baseScales = { x:{ticks:{color:tickColor},grid:{color:gridColor}}, y:{ticks:{color:tickColor},grid:{color:gridColor}} };
+
+if(DIAS_LABELS.length > 0){
+  new Chart(document.getElementById('chartApuestaDiaria'),{type:'line',data:{labels:DIAS_LABELS,datasets:[
+  {label:'Apostado',data:DIAS_APOSTADO,borderColor:'#ff3a56',backgroundColor:'rgba(255,58,86,.12)',fill:true,tension:0.4,pointBackgroundColor:'#ff3a56',pointBorderColor:'#fff',pointRadius:5,pointHoverRadius:7,borderWidth:2.5},
+  {label:'Pagado',data:DIAS_GANADO,borderColor:'#00d4ff',backgroundColor:'rgba(0,212,255,.08)',fill:true,tension:0.4,pointBackgroundColor:'#00d4ff',pointBorderColor:'#fff',pointRadius:5,pointHoverRadius:7,borderWidth:2.5}
+]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#c8c0d8',font:{size:11},usePointStyle:true}}},scales:baseScales}});
+} else { document.getElementById('chartApuestaDiaria').parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:240px;color:var(--gris);font-size:.85rem;">Sin datos de los últimos 7 días</div>'; }
+
+if(juegosNombres.length > 0){
+  new Chart(document.getElementById('chartJuegoPie'),{type:'doughnut',data:{labels:juegosNombres,datasets:[{
+  data:juegosApuestados,
+  backgroundColor:['#ff3a56','#00d4ff','#c9a84c','#a855f7','#22c55e'],
+  borderColor:'rgba(6,5,10,.9)',borderWidth:3,hoverOffset:8
+}]},options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{
+  legend:{position:'bottom',labels:{color:'#c8c0d8',font:{size:10},padding:16,usePointStyle:true}},
+  tooltip:{callbacks:{label:function(ctx){return ' '+ctx.label+': COP$'+Math.round(ctx.raw).toLocaleString('es-CO');}}}
+}}});
+  new Chart(document.getElementById('chartJuegoBar'),{type:'bar',data:{labels:juegosNombres,datasets:[
+  {label:'Apostado',data:juegosApuestados,backgroundColor:'rgba(255,58,86,.8)',borderColor:'#ff3a56',borderWidth:0,borderRadius:6,borderSkipped:false},
+  {label:'Pagado',data:juegosGanados,backgroundColor:'rgba(0,212,255,.55)',borderColor:'#00d4ff',borderWidth:0,borderRadius:6,borderSkipped:false}
+]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#c8c0d8',font:{size:11},usePointStyle:true}}},scales:baseScales}});
+} else {
+  ['chartJuegoPie','chartJuegoBar'].forEach(id=>{ document.getElementById(id).parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:240px;color:var(--gris);font-size:.85rem;">Sin datos de juegos aún</div>'; });
+}
+
+if(REG_LABELS.length > 0){
+  new Chart(document.getElementById('chartRegistros'),{type:'bar',data:{labels:REG_LABELS,datasets:[{
+  label:'Nuevos Jugadores',data:REG_TOTALES,
+  backgroundColor:'rgba(168,85,247,.7)',borderColor:'#a855f7',borderWidth:0,borderRadius:6,borderSkipped:false
+}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#c8c0d8',font:{size:11},usePointStyle:true}}},scales:baseScales}});
+} else { document.getElementById('chartRegistros').parentElement.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:240px;color:var(--gris);font-size:.85rem;">Sin registros en los últimos 7 días</div>'; }
+
+// ─── Dynamic conclusions ───
+if(DIAS_TOTALES.length > 0){
+  const mx = Math.max(...DIAS_TOTALES), mn = Math.min(...DIAS_TOTALES);
+  const trend = DIAS_TOTALES[DIAS_TOTALES.length-1] > DIAS_TOTALES[0] ? 'creciente' : 'decreciente';
+  document.getElementById('concl-volumen-text').textContent =
+    `Tendencia ${trend}. Max: COP$${mx.toLocaleString('es-CO')} / Min: COP$${mn.toLocaleString('es-CO')}.`;
+}
+if(JUEGOS_AP.length > 0){
+  const maxIdx = JUEGOS_AP.indexOf(Math.max(...JUEGOS_AP));
+  const minIdx = JUEGOS_AP.indexOf(Math.min(...JUEGOS_AP));
+  document.getElementById('concl-pie-text').textContent =
+    `Mayor volumen: ${juegosNombres[maxIdx]}. Menor volumen: ${juegosNombres[minIdx]}.`;
+  const ganancias = JUEGOS_AP.map((ap,i)=> ap - JUEGOS_GAN[i]);
+  const masGan = ganancias.indexOf(Math.max(...ganancias));
+  document.getElementById('concl-bar-text').textContent =
+    `Mayor margen del casino: ${juegosNombres[masGan]} (COP$${ganancias[masGan].toLocaleString('es-CO')}).`;
+}
+if(REG_TOTALES.length > 0){
+  const total = REG_TOTALES.reduce((a,b)=>a+b,0);
+  const promedio = (total/REG_TOTALES.length).toFixed(1);
+  document.getElementById('concl-reg-text').textContent =
+    `${total} registros esta semana — promedio ${promedio} por día.`;
+}
+</script>
+
+<style>
+.chart-conclusion {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,.02);
+  border-left: 2px solid rgba(200,16,46,.25);
+  border-radius: 0 6px 6px 0;
+}
+.concl-text { font-size: .74rem; color: var(--gris); line-height: 1.5; font-style: italic; }
+</style>
+{% endblock %}

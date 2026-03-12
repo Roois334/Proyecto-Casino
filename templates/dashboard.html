@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Mi Panel — Royal Spin{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title"> Mi <span class="gold">Panel</span></h1>
+    <p class="page-subtitle">Bienvenido, {{ user['nombre'] }}</p>
+  </div>
+</div>
+
+<!-- BILLETERA RSC -->
+<div class="wallet-card">
+  <div class="wallet-left">
+    <div class="wallet-icon">🪙</div>
+    <div>
+      <div class="wallet-label">Mi Billetera RoyalCoin</div>
+      <div class="wallet-saldo-rsc">{{ "%.0f"|format(user['saldo'] / 1000) }} <span class="wallet-ticker">RSC</span></div>
+      <div class="wallet-saldo-cop">≈ COP${{ user['saldo']|cop }}</div>
+    </div>
+  </div>
+  <div class="wallet-right">
+    <a href="/depositar" class="wallet-btn wallet-btn-dep">+ Depositar</a>
+    <a href="/retirar"   class="wallet-btn wallet-btn-ret">↑ Retirar</a>
+  </div>
+</div>
+
+<div class="stats-grid" style="margin-top:20px;">
+  <div class="stat-card">
+    <span class="stat-num">{{ stats['total_apuestas'] or 0 }}</span>
+    <span class="stat-label">Apuestas Realizadas</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num" style="color:#4ade80;">COP${{ (stats['total_ganado'] or 0)|cop }}</span>
+    <span class="stat-label">Total Ganado</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num" style="color:#f87171;">COP${{ (stats['total_apostado'] or 0)|cop }}</span>
+    <span class="stat-label">Total Apostado</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-num">{{ user['puntos_vip'] }}</span>
+    <span class="stat-label">Puntos VIP</span>
+  </div>
+</div>
+
+<style>
+.wallet-card {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;
+  background: linear-gradient(135deg, rgba(201,168,76,.12) 0%, rgba(200,16,46,.07) 60%, rgba(201,168,76,.05) 100%);
+  border: 1.5px solid rgba(201,168,76,.4);
+  border-radius: 20px; padding: 24px 28px; margin-bottom: 4px;
+  box-shadow: 0 0 40px rgba(201,168,76,.1), inset 0 1px 0 rgba(201,168,76,.15);
+  position: relative; overflow: hidden;
+}
+.wallet-card::before {
+  content: ''; position: absolute; top: -40px; right: -40px;
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,168,76,.15), transparent 70%);
+  pointer-events: none;
+}
+.wallet-left  { display: flex; align-items: center; gap: 18px; }
+.wallet-icon  { font-size: 3rem; animation: float 3s ease-in-out infinite; filter: drop-shadow(0 0 12px rgba(201,168,76,.5)); }
+.wallet-label { font-size: .68rem; color: var(--gris2); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 4px; }
+.wallet-saldo-rsc {
+  font-family: 'Rajdhani', sans-serif; font-size: 2.4rem; font-weight: 800; line-height: 1;
+  background: linear-gradient(135deg, #b8860b, #e8c96a, #c9a84c);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.wallet-ticker { font-size: 1.1rem; font-weight: 700; opacity: .8; }
+.wallet-saldo-cop { font-size: .78rem; color: var(--gris2); margin-top: 4px; }
+.wallet-right { display: flex; gap: 10px; }
+.wallet-btn {
+  padding: 10px 22px; border-radius: 10px; font-weight: 800; font-size: .8rem;
+  text-decoration: none; letter-spacing: .04em; transition: all .2s; white-space: nowrap;
+}
+.wallet-btn-dep {
+  background: var(--gd); color: var(--negro);
+  box-shadow: 0 4px 16px rgba(201,168,76,.35);
+}
+.wallet-btn-dep:hover { box-shadow: 0 6px 24px rgba(201,168,76,.55); transform: translateY(-2px); }
+.wallet-btn-ret {
+  background: rgba(201,168,76,.1); border: 1.5px solid rgba(201,168,76,.35);
+  color: var(--dorado2);
+}
+.wallet-btn-ret:hover { background: rgba(201,168,76,.2); transform: translateY(-2px); }
+</style>
+
+{% if ultimas_apuestas %}
+<div class="card">
+  <div class="card-title">Ultimas Apuestas</div>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Juego</th>
+          <th style="text-align:right;">Apostado</th>
+          <th style="text-align:right;">Ganado</th>
+          <th>Resultado</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ap in ultimas_apuestas %}
+        <tr>
+          <td>{{ ap['juego_nombre'] }}</td>
+          <td style="text-align:right;color:#f87171;">COP${{ ap['monto_apostado']|cop }}</td>
+          <td style="text-align:right;{% if ap['monto_ganado'] > 0 %}color:#4ade80;font-weight:600;{% else %}color:var(--gris);{% endif %}">
+            COP${{ ap['monto_ganado']|cop }}
+          </td>
+          <td style="font-size:.78rem;">{{ ap['resultado'][:40] }}</td>
+          <td style="color:var(--gris);">{{ ap['fecha']|fecha }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <a href="/historial" style="display:inline-block;margin-top:14px;color:var(--dorado);font-size:.82rem;text-decoration:none;">Ver historial completo</a>
+</div>
+{% endif %}
+{% endblock %}

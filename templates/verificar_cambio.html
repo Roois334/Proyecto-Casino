@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Verificar Cambio — Royal Spin{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div style="padding:60px 20px;display:flex;align-items:center;justify-content:center;min-height:600px;">
+  <div class="form-card" style="max-width:440px;width:100%;text-align:center;">
+    <div class="form-logo"><span class="form-logo-suit"></span> Royal Spin <span class="form-logo-suit"></span></div>
+
+    {% if tipo in ('password','admin_password') %}
+      <div style="font-size:3rem;margin-bottom:12px;"></div>
+      <h2 style="margin-bottom:8px;">Confirmar Cambio de Contraseña</h2>
+      <p class="form-card-sub">Ingresa el código de 6 dígitos enviado a tu correo electrónico</p>
+    {% else %}
+      <div style="font-size:3rem;margin-bottom:12px;">️</div>
+      <h2 style="margin-bottom:8px;">Confirmar Cambio de Correo</h2>
+      <p class="form-card-sub">Ingresa el código de 6 dígitos enviado a tu correo actual</p>
+    {% endif %}
+
+    <div class="form-sep"></div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for c,m in messages %}
+      <div class="alert alert-{{ c }}">
+        <span>{% if c=='success' %}{% else %}{% endif %}</span>{{ m }}
+        <button onclick="this.parentElement.remove()" class="alert-close">×</button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+
+    {% if tipo == 'password' %}
+      <form method="POST" action="/perfil/verificar-cambio-password">
+    {% elif tipo == 'email' %}
+      <form method="POST" action="/perfil/verificar-cambio-email">
+    {% elif tipo == 'admin_password' %}
+      <form method="POST" action="/admin/perfil/verificar-cambio-password">
+    {% elif tipo == 'admin_email' %}
+      <form method="POST" action="/admin/perfil/verificar-cambio-email">
+    {% endif %}
+
+      <!-- 6-digit visual input boxes -->
+      <div class="code-boxes" id="codeBoxes">
+        <input class="code-box" id="cb0" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" oninput="onBoxInput(0)" onkeydown="onBoxKey(event,0)">
+        <input class="code-box" id="cb1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" oninput="onBoxInput(1)" onkeydown="onBoxKey(event,1)">
+        <input class="code-box" id="cb2" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" oninput="onBoxInput(2)" onkeydown="onBoxKey(event,2)">
+        <input class="code-box" id="cb3" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" oninput="onBoxInput(3)" onkeydown="onBoxKey(event,3)">
+        <input class="code-box" id="cb4" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" oninput="onBoxInput(4)" onkeydown="onBoxKey(event,4)">
+        <input class="code-box" id="cb5" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" oninput="onBoxInput(5)" onkeydown="onBoxKey(event,5)">
+      </div>
+      <input type="hidden" name="codigo" id="codigoHidden">
+      <div class="field-hint" id="hintCod" style="text-align:center;margin-bottom:14px;"></div>
+
+      <div style="background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.2);border-radius:10px;padding:12px;margin:16px 0;font-size:.78rem;color:var(--gris2);">
+        ⏱ El código expira en <strong style="color:var(--dorado2);" id="timerLabel">15:00</strong>
+      </div>
+
+      <button type="button" onclick="enviarCodigo()" class="btn btn-r btn-block" style="margin-top:8px;">
+         Confirmar Código
+      </button>
+    </form>
+
+    {% if tipo in ('password','email') %}
+      <div class="form-links"><a href="/perfil">← Volver al Perfil</a></div>
+    {% else %}
+      <div class="form-links"><a href="/admin/perfil">← Volver al Perfil Admin</a></div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+/* Code boxes - single gold color, no separator */
+.code-boxes {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 20px 0 8px;
+}
+.code-box {
+  width: 52px;
+  height: 64px;
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(20,10,18,.98), rgba(12,6,14,.99));
+  border: 2px solid rgba(201,168,76,.3);
+  color: var(--dorado2);
+  font-size: 2rem;
+  font-weight: 900;
+  font-family: 'Rajdhani', sans-serif;
+  text-align: center;
+  outline: none;
+  transition: all .2s;
+  caret-color: var(--dorado2);
+}
+.code-box:focus {
+  border-color: var(--dorado2);
+  box-shadow: 0 0 20px rgba(201,168,76,.35);
+  background: rgba(201,168,76,.06);
+  transform: scale(1.05);
+}
+.code-box.filled {
+  border-color: rgba(201,168,76,.6);
+  background: rgba(201,168,76,.05);
+}
+.code-box.error {
+  border-color: var(--rojo3);
+  animation: shake .3s ease;
+}
+</style>
+
+<script>
+function onBoxInput(idx){
+  const box = document.getElementById('cb'+idx);
+  const val = box.value.replace(/\D/g,'');
+  box.value = val.slice(-1);
+  if(val){ box.classList.add('filled'); }
+  else { box.classList.remove('filled'); }
+  updateHidden();
+  if(val && idx < 5) document.getElementById('cb'+(idx+1)).focus();
+  if(getAllDigits().length === 6) setTimeout(()=>enviarCodigo(), 350);
+}
+
+function onBoxKey(e, idx){
+  if(e.key === 'Backspace'){
+    const box = document.getElementById('cb'+idx);
+    if(!box.value && idx > 0){
+      document.getElementById('cb'+(idx-1)).focus();
+      document.getElementById('cb'+(idx-1)).value = '';
+      document.getElementById('cb'+(idx-1)).classList.remove('filled');
+      updateHidden();
+    }
+  }
+  if(e.key === 'ArrowLeft' && idx > 0) document.getElementById('cb'+(idx-1)).focus();
+  if(e.key === 'ArrowRight' && idx < 5) document.getElementById('cb'+(idx+1)).focus();
+}
+
+function getAllDigits(){
+  let s = '';
+  for(let i=0;i<6;i++) s += (document.getElementById('cb'+i).value||'');
+  return s;
+}
+
+function updateHidden(){
+  const v = getAllDigits();
+  document.getElementById('codigoHidden').value = v;
+  const hint = document.getElementById('hintCod');
+  if(v.length === 6){ hint.textContent = ' Código completo'; hint.className='field-hint ok'; }
+  else if(v.length > 0){ hint.textContent = v.length+'/6 dígitos'; hint.className='field-hint'; }
+  else { hint.textContent=''; }
+}
+
+function enviarCodigo(){
+  const v = getAllDigits();
+  if(v.length !== 6){
+    for(let i=0;i<6;i++) document.getElementById('cb'+i).classList.add('error');
+    setTimeout(()=>{ for(let i=0;i<6;i++) document.getElementById('cb'+i).classList.remove('error'); }, 600);
+    document.getElementById('hintCod').textContent='Ingresa los 6 dígitos';
+    document.getElementById('hintCod').className='field-hint err';
+    return;
+  }
+  document.getElementById('codigoHidden').value = v;
+  document.querySelector('form').submit();
+}
+
+// Handle paste
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('cb0').focus();
+  document.getElementById('codeBoxes').addEventListener('paste', function(e){
+    e.preventDefault();
+    const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'').slice(0,6);
+    for(let i=0;i<paste.length;i++){
+      const b = document.getElementById('cb'+i);
+      b.value = paste[i];
+      b.classList.add('filled');
+    }
+    updateHidden();
+    const nextFocus = Math.min(paste.length, 5);
+    document.getElementById('cb'+nextFocus).focus();
+    if(paste.length === 6) setTimeout(()=>enviarCodigo(), 350);
+  });
+});
+
+// Timer 15 minutos
+let secs = 900;
+const timer = setInterval(()=>{
+  secs--;
+  if(secs <= 0){ clearInterval(timer); document.getElementById('timerLabel').textContent='Expirado'; return; }
+  const m = Math.floor(secs/60), s = secs%60;
+  document.getElementById('timerLabel').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  if(secs < 120) document.getElementById('timerLabel').style.color='#f87171';
+}, 1000);
+</script>
+{% endblock %}

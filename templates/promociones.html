@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Promociones - Casino Royal{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Nuestras <span>Promociones</span></h1>
+        <p class="page-subtitle">Aprovecha nuestras ofertas especiales</p>
+    </div>
+</div>
+
+<div class="promo-grid" style="margin-bottom: 40px;">
+    <div class="promo-card">
+        <div class="promo-icon"></div>
+        <h3>Bono de Bienvenida</h3>
+        <p>Obtén un 100% de match en tu primer depósito. Máximo $500 en bonificación. Válido para nuevos jugadores.</p>
+    </div>
+
+    <div class="promo-card">
+        <div class="promo-icon">⭐</div>
+        <h3>Programa VIP Premium</h3>
+        <p>Acumula puntos en cada juego y desbloquea recompensas exclusivas. Acceso a salas VIP privadas.</p>
+    </div>
+
+    <div class="promo-card">
+        <div class="promo-icon"></div>
+        <h3>Cashback Diario</h3>
+        <p>Recupera hasta 10% de tus pérdidas cada día de juego. Sin límite de cantidad.</p>
+    </div>
+</div>
+
+<div class="promo-grid" style="margin-bottom: 40px;">
+    <div class="promo-card">
+        <div class="promo-icon"></div>
+        <h3>Torneos Semanales</h3>
+        <p>Participa en torneos con premios de hasta $10,000. Clasifica entre los mejores y gana.</p>
+    </div>
+
+    <div class="promo-card">
+        <div class="promo-icon"></div>
+        <h3>Bonos de Referral</h3>
+        <p>Invita amigos y obtén bonos por cada referido. Ganancias ilimitadas en comisiones.</p>
+    </div>
+
+    <div class="promo-card">
+        <div class="promo-icon"></div>
+        <h3>Spins Gratis</h3>
+        <p>Consigue spins gratis en nuestras máquinas tragamonedas más populares. Todos los viernes.</p>
+    </div>
+</div>
+
+<div style="background: linear-gradient(135deg, var(--rojo) 0%, var(--oscuro-rojo) 100%); color: white; border-radius: 20px; padding: 40px; text-align: center;">
+    <h2 style="font-family: 'Rajdhani', serif; font-size: 2rem; margin-bottom: 16px;">¿Listo para Jugar?</h2>
+    <p style="font-size: 1rem; margin-bottom: 24px; opacity: 0.95;">Aprovecha estas promociones limitadas y comienza a ganar hoy mismo.</p>
+    <a href="/juegos" class="btn btn-primary" style="background: white; color: var(--rojo); box-shadow: none;">Ir a los Juegos</a>
+</div>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Crear Cuenta — Royal Spin{% endblock %}
+{% block alerts %}{% endblock %}
+{% block content %}
+<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;padding:40px 20px;">
+  <div class="form-card" style="max-width:480px;">
+    <a href="/" class="btn-volver" style="position:absolute;top:18px;left:18px;">
+      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Inicio
+    </a>
+    <div class="form-logo"><span class="form-logo-suit"></span> Royal Spin <span class="form-logo-suit"></span></div>
+    <h2>Crear Cuenta</h2>
+    <p class="form-card-sub">Unete y recibe <strong style="color:var(--dorado2);">COP$10.000 de bienvenida</strong></p>
+    <div class="form-sep"></div>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for c,m in messages %}
+      <div class="alert alert-{{ c }}">
+        <span>{% if c=='success' %}{% elif c=='error' %}{% else %}!{% endif %}</span>
+        {{ m }}
+        <button onclick="this.parentElement.remove()" class="alert-close">×</button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+    {% if menor_de_edad %}
+    <div style="background:rgba(200,16,46,.12);border:1px solid rgba(200,16,46,.4);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;">
+      <div style="color:#f87171;font-weight:700;font-size:1rem;">Acceso Denegado</div>
+      <div style="color:rgba(248,113,113,.8);font-size:.82rem;margin-top:4px;">Debes ser mayor de 18 anos para registrarte.</div>
+    </div>
+    {% endif %}
+    <form method="POST" id="regForm" novalidate>
+      <label>Nombre Completo</label>
+      <div class="inp-field" id="wNombre"><input type="text" name="nombre" id="rNombre" required placeholder="Ej: Carlos Martinez" oninput="valNombre()"></div>
+      <div class="field-hint" id="mNombre"></div>
+
+      <label>Cedula / Documento</label>
+      <div class="inp-field" id="wCedula"><input type="text" name="cedula" id="rCedula" required placeholder="Ej: 1023456789" oninput="valCedula()" inputmode="numeric"></div>
+      <div class="field-hint" id="mCedula"></div>
+
+      <label>Correo Electronico</label>
+      <div class="inp-field" id="wEmail"><input type="email" name="email" id="rEmail" required placeholder="tu@correo.com" oninput="valEmail()"></div>
+      <div class="field-hint" id="mEmail"></div>
+
+      <label>Fecha de Nacimiento <span style="color:#f87171;font-size:.7rem;">(+18 anos obligatorio)</span></label>
+      <div class="inp-field" id="wFecha"><input type="date" name="fecha_nacimiento" id="rFecha" required max="{{ max_date }}" onchange="valFecha()" style="color-scheme:dark;"></div>
+      <div class="field-hint" id="mFecha"></div>
+
+      <label>Contrasena <span style="color:var(--gris);font-size:.7rem;">(min. 6 - 1 mayuscula - 1 numero)</span></label>
+      <div class="inp-field input-group" id="wPass">
+        <input type="password" name="password" id="rPass" required placeholder="Minimo 6 caracteres" oninput="valPass()">
+        <button type="button" class="toggle-pass" onclick="togglePass('rPass','iPass')">
+          <svg id="iPass" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="field-hint" id="mPass"></div>
+      <div style="margin-top:5px;">
+        <div class="progress-bar"><div class="progress-fill" id="passStrBar" style="width:0%;background:#f87171"></div></div>
+        <div id="passStrLabel" style="font-size:.68rem;margin-top:3px;font-weight:600;"></div>
+      </div>
+
+      <label>Confirmar Contrasena</label>
+      <div class="inp-field input-group" id="wPass2">
+        <input type="password" name="confirmar_password" id="rPass2" required placeholder="Repite tu contrasena" oninput="valPass2()">
+        <button type="button" class="toggle-pass" onclick="togglePass('rPass2','iPass2')">
+          <svg id="iPass2" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <div class="field-hint" id="mPass2"></div>
+
+      <div style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:11px 14px;margin-top:14px;font-size:.75rem;color:var(--gris);">
+        Al registrarte confirmas que eres mayor de 18 anos y aceptas el juego responsable.
+      </div>
+      <button type="button" class="btn btn-d btn-block" onclick="enviarRegistro()" style="margin-top:18px;">Crear Cuenta</button>
+    </form>
+    <div class="form-links"><a href="/login">Ya tienes cuenta? Inicia sesion</a></div>
+  </div>
+</div>
+<script>
+const PASS_COLS=['#f87171','#fb923c','#facc15','#4ade80','#22c55e'];
+const PASS_TXTS=['Debil','Debil','Media','Fuerte','Muy fuerte'];
+function togglePass(inputId,iconId){const inp=document.getElementById(inputId),ico=document.getElementById(iconId);if(inp.type==='password'){inp.type='text';ico.innerHTML='<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';}else{inp.type='password';ico.innerHTML='<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';}}
+function setField(wId,mId,msg,ok){const w=document.getElementById(wId),el=document.getElementById(mId);if(w){w.classList.toggle('valid',ok&&!!msg);w.classList.toggle('invalid',!ok&&!!msg);}if(el){el.textContent=msg;el.className='field-hint '+(msg?(ok?'ok':'err'):'');}}
+function valNombre(){const v=document.getElementById('rNombre').value.trim();if(!v||v.length<2||/\d/.test(v))return setField('wNombre','mNombre','Nombre invalido (sin numeros, min. 2 letras)',false),false;setField('wNombre','mNombre','',true);return true;}
+function valCedula(){const v=document.getElementById('rCedula').value.trim();if(!v||!/^\d{6,12}$/.test(v))return setField('wCedula','mCedula','Cedula invalida (6-12 digitos)',false),false;setField('wCedula','mCedula','',true);return true;}
+function valEmail(){const v=document.getElementById('rEmail').value.trim(),ok=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);if(!v)return setField('wEmail','mEmail','El correo es obligatorio',false),false;if(!ok)return setField('wEmail','mEmail','Formato invalido',false),false;setField('wEmail','mEmail','',true);return true;}
+function valFecha(){const v=document.getElementById('rFecha').value;if(!v)return setField('wFecha','mFecha','La fecha es obligatoria',false),false;const d=new Date(v),hoy=new Date(),edad=hoy.getFullYear()-d.getFullYear();if(edad<18)return setField('wFecha','mFecha','Debes ser mayor de 18 anos',false),false;setField('wFecha','mFecha','',true);return true;}
+function calcFuerza(v){let s=0;if(v.length>=6)s++;if(v.length>=10)s++;if(/[A-Z]/.test(v))s++;if(/\d/.test(v))s++;if(/[^A-Za-z0-9]/.test(v))s++;return s;}
+function valPass(){
+  const v=document.getElementById('rPass').value;
+  const bar=document.getElementById('passStrBar'),lbl=document.getElementById('passStrLabel');
+  const s=calcFuerza(v);
+  bar.style.width=(s/5*100)+'%'; bar.style.background=PASS_COLS[Math.max(0,s-1)];
+  lbl.textContent=v?PASS_TXTS[Math.max(0,s-1)]:''; lbl.style.color=PASS_COLS[Math.max(0,s-1)];
+  if(!v)return setField('wPass','mPass','',false),false;
+  if(v.length<6)return setField('wPass','mPass','Minimo 6 caracteres',false),false;
+  if(!/[A-Z]/.test(v))return setField('wPass','mPass','Debe tener al menos 1 mayuscula',false),false;
+  if(!/\d/.test(v))return setField('wPass','mPass','Debe tener al menos 1 numero',false),false;
+  setField('wPass','mPass','',true);return true;
+}
+function valPass2(){const p=document.getElementById('rPass').value,p2=document.getElementById('rPass2').value;if(!p2)return setField('wPass2','mPass2','',false),false;if(p!==p2)return setField('wPass2','mPass2','Las contrasenas no coinciden',false),false;setField('wPass2','mPass2','Coinciden',true);return true;}
+function enviarRegistro(){if(valNombre()&&valCedula()&&valEmail()&&valFecha()&&valPass()&&valPass2())document.getElementById('regForm').submit();}
+document.getElementById('regForm').addEventListener('keydown',e=>{if(e.key==='Enter')enviarRegistro();});
+</script>
+{% endblock %}

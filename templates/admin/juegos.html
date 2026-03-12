@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Gestión de Juegos - Admin{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;"><a href="/admin" class="btn-volver"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Panel Admin</a></div>
+
+<div class="page-header fade-up">
+  <span class="section-tag">Administración</span>
+  <h1 class="page-title">Gestión de <span class="gold">Juegos</span></h1>
+  <p class="page-subtitle">Activa o desactiva juegos en tiempo real. Los jugadores no pueden acceder a juegos desactivados.</p>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for c,m in messages %}<div class="alert alert-{{ c }}" style="margin-bottom:14px;">{{ m }}<button onclick="this.parentElement.remove()" class="alert-close">×</button></div>{% endfor %}
+{% endwith %}
+
+<!-- Summary stats -->
+<div class="jg-stats-bar">
+  <div class="jg-stat">
+    <span class="jg-stat-num">{{ juegos|length }}</span>
+    <span class="jg-stat-lbl">Total Juegos</span>
+  </div>
+  <div class="jg-stat">
+    <span class="jg-stat-num" style="color:#4ade80;">{{ juegos|selectattr('activo')|list|length }}</span>
+    <span class="jg-stat-lbl">Activos</span>
+  </div>
+  <div class="jg-stat">
+    <span class="jg-stat-num" style="color:#f87171;">{{ juegos|rejectattr('activo')|list|length }}</span>
+    <span class="jg-stat-lbl">Inactivos</span>
+  </div>
+</div>
+
+<!-- Games management table -->
+<div class="jg-table-wrap">
+  <table class="jg-table">
+    <thead>
+      <tr>
+        <th>Juego</th>
+        <th>RTP</th>
+        <th>Apuesta Min.</th>
+        <th>Apuesta Max.</th>
+        <th>Mult. Max.</th>
+        <th>Estado</th>
+        <th>Accion</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for j in juegos %}{% if j['tipo'] != 'colores' %}
+      <tr class="jg-row {% if not j['activo'] %}jg-row-off{% endif %}">
+        <td>
+          <div class="jg-name-cell">
+            <div class="jg-icon-badge {% if j['tipo']=='slots' %}jg-icon-slots{% elif j['tipo']=='rueda' %}jg-icon-rueda{% elif j['tipo']=='cartas' %}jg-icon-cartas{% elif j['tipo']=='dados' %}jg-icon-dados{% else %}jg-icon-default{% endif %}">
+              {% if j['tipo']=='slots' %}S{% elif j['tipo']=='rueda' %}R{% elif j['tipo']=='cartas' %}BJ{% elif j['tipo']=='dados' %}D{% else %}C{% endif %}
+            </div>
+            <div>
+              <div class="jg-nombre">{{ j['nombre'] }}</div>
+              <div class="jg-tipo">{{ j['tipo']|upper }}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <span class="jg-rtp">{{ j['rtp'] }}%</span>
+        </td>
+        <td><span class="jg-monto">COP${{ j['apuesta_minima']|cop }}</span></td>
+        <td><span class="jg-monto">COP${{ j['apuesta_maxima']|cop }}</span></td>
+        <td><span class="jg-mult">x{{ j['multiplicador_maximo'] }}</span></td>
+        <td>
+          <span class="jg-estado {% if j['activo'] %}jg-estado-on{% else %}jg-estado-off{% endif %}">
+            <span class="jg-estado-dot"></span>
+            {% if j['activo'] %}Activo{% else %}Inactivo{% endif %}
+          </span>
+        </td>
+        <td>
+          <form method="POST" action="/admin/juego/{{ j['id'] }}/toggle" style="display:inline;">
+            <button type="submit" class="jg-toggle {% if j['activo'] %}jg-toggle-off{% else %}jg-toggle-on{% endif %}"
+                    onclick="return confirm('{% if j['activo'] %}Desactivar{% else %}Activar{% endif %} {{ j['nombre'] }}?')">
+              {% if j['activo'] %}Desactivar{% else %}Activar{% endif %}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endif %}{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+
+<style>
+/* Stats bar */
+.jg-stats-bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.jg-stat {
+  background: linear-gradient(145deg, rgba(18,8,22,.98), rgba(12,6,16,.99));
+  border: 1px solid rgba(200,16,46,.2);
+  border-radius: 12px;
+  padding: 14px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.jg-stat-num { font-family:'Rajdhani',sans-serif; font-size:1.8rem; font-weight:800; color:var(--dorado2); line-height:1; }
+.jg-stat-lbl { font-size:.65rem; color:var(--gris); text-transform:uppercase; letter-spacing:.08em; }
+
+/* Table */
+.jg-table-wrap {
+  background: linear-gradient(145deg,rgba(12,6,16,.99),rgba(8,4,12,.99));
+  border: 1px solid rgba(200,16,46,.2);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 28px;
+}
+.jg-table { width:100%; border-collapse:collapse; }
+.jg-table thead tr {
+  background: rgba(200,16,46,.08);
+  border-bottom: 1px solid rgba(200,16,46,.18);
+}
+.jg-table th {
+  padding: 12px 16px;
+  font-size:.65rem; font-weight:800; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--gris2); text-align:left;
+}
+.jg-row { border-bottom: 1px solid rgba(200,16,46,.06); transition: background .15s; }
+.jg-row:last-child { border-bottom: none; }
+.jg-row:hover { background: rgba(200,16,46,.04); }
+.jg-row-off { opacity: .6; }
+.jg-table td { padding: 14px 16px; vertical-align: middle; }
+
+/* Name cell */
+.jg-name-cell { display:flex; align-items:center; gap:12px; }
+.jg-icon-badge {
+  width:38px; height:38px; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Rajdhani',sans-serif; font-weight:900; font-size:.75rem;
+  flex-shrink:0;
+}
+.jg-icon-slots  { background:rgba(200,16,46,.15); color:var(--rojo3); border:1px solid rgba(200,16,46,.3); }
+.jg-icon-rueda  { background:rgba(34,197,94,.1); color:#4ade80; border:1px solid rgba(34,197,94,.25); }
+.jg-icon-cartas { background:rgba(201,168,76,.1); color:var(--dorado2); border:1px solid rgba(201,168,76,.25); }
+.jg-icon-dados  { background:rgba(168,85,247,.1); color:#a78bfa; border:1px solid rgba(168,85,247,.25); }
+.jg-icon-default{ background:rgba(200,16,46,.1); color:var(--gris2); border:1px solid rgba(200,16,46,.2); }
+.jg-nombre { font-weight:700; font-size:.9rem; color:var(--blanco); }
+.jg-tipo   { font-size:.62rem; color:var(--gris); text-transform:uppercase; letter-spacing:.06em; margin-top:1px; }
+.jg-rtp    { font-weight:700; color:#4ade80; font-size:.85rem; }
+.jg-monto  { font-size:.8rem; color:var(--gris2); }
+.jg-mult   { font-weight:700; color:var(--rojo3); font-size:.85rem; }
+
+/* Status badge */
+.jg-estado {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 10px; border-radius:20px;
+  font-size:.7rem; font-weight:700;
+}
+.jg-estado-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.jg-estado-on { background:rgba(34,197,94,.1); color:#4ade80; border:1px solid rgba(34,197,94,.3); }
+.jg-estado-on .jg-estado-dot { background:#4ade80; box-shadow:0 0 6px #4ade80; animation:dotPulse 2s ease infinite; }
+.jg-estado-off { background:rgba(107,114,128,.1); color:#9ca3af; border:1px solid rgba(107,114,128,.2); }
+.jg-estado-off .jg-estado-dot { background:#6b7280; }
+@keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* Action button */
+.jg-toggle {
+  padding:7px 16px; border-radius:8px;
+  font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  cursor:pointer; border:none; font-family:'DM Sans',sans-serif; transition:all .2s;
+}
+.jg-toggle-off { background:rgba(200,16,46,.1); color:var(--rojo3); border:1px solid rgba(200,16,46,.3); }
+.jg-toggle-off:hover { background:rgba(200,16,46,.25); box-shadow:0 3px 12px rgba(200,16,46,.3); }
+.jg-toggle-on { background:rgba(34,197,94,.1); color:#4ade80; border:1px solid rgba(34,197,94,.3); }
+.jg-toggle-on:hover { background:rgba(34,197,94,.22); box-shadow:0 3px 12px rgba(34,197,94,.25); }
+</style>
+{% endblock %}

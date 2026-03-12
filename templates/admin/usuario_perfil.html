@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Perfil: {{ u['nombre'] }} — Admin{% endblock %}
+{% block content %}
+<div style="margin-bottom:20px;">
+  <a href="/admin/usuarios" class="btn-volver"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Usuarios</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for c,m in messages %}<div class="alert alert-{{ c }}" style="margin-bottom:14px;">{{ m }}<button onclick="this.parentElement.remove()" class="alert-close">×</button></div>{% endfor %}
+{% endwith %}
+
+<!-- HEADER PERFIL -->
+<div class="up-header">
+  <div class="up-avatar">{{ u['nombre'][0].upper() }}</div>
+  <div class="up-info">
+    <div class="up-nombre">{{ u['nombre'] }}
+      {% if u['bloqueado'] %}<span class="up-badge badge-block"> Bloqueado</span>{% else %}<span class="up-badge badge-active"> Activo</span>{% endif %}
+      {% if u['rol']=='admin' %}<span class="up-badge badge-admin"> Admin</span>{% endif %}
+    </div>
+    <div class="up-email">{{ u['email'] }}</div>
+    <div class="up-meta">
+      Registrado {{ u['fecha_registro']|fecha }}
+      {% if u['ultimo_login'] %} · Último acceso {{ u['ultimo_login']|fecha }}{% endif %}
+    </div>
+  </div>
+  <div class="up-actions">
+    {% if u['bloqueado'] %}
+    <form method="POST" action="/admin/usuario/{{ u['id'] }}/desbloquear" style="display:inline;">
+      <button type="submit" class="btn-accion-u btn-green"> Desbloquear</button>
+    </form>
+    {% else %}
+    <button onclick="document.getElementById('modalBloqueo').style.display='flex'" class="btn-accion-u btn-red"> Bloquear</button>
+    {% endif %}
+  </div>
+</div>
+
+<!-- KPI CARDS -->
+<div class="up-kpis">
+  <div class="up-kpi">
+    <span class="up-kpi-val" style="color:var(--dorado2);">COP${{ u['saldo']|cop }}</span>
+    <span class="up-kpi-lbl">Saldo Actual</span>
+  </div>
+  <div class="up-kpi">
+    <span class="up-kpi-val">{{ u['puntos_vip'] }}</span>
+    <span class="up-kpi-lbl">Puntos VIP</span>
+  </div>
+  <div class="up-kpi">
+    <span class="up-kpi-val">{{ stats['total'] }}</span>
+    <span class="up-kpi-lbl">Total Apuestas</span>
+  </div>
+  <div class="up-kpi">
+    <span class="up-kpi-val" style="color:#4ade80;">COP${{ stats['apostado']|cop }}</span>
+    <span class="up-kpi-lbl">Total Apostado</span>
+  </div>
+  <div class="up-kpi">
+    <span class="up-kpi-val" style="color:{% if stats['ganado'] >= stats['apostado'] %}#4ade80{% else %}#f87171{% endif %};">COP${{ stats['ganado']|cop }}</span>
+    <span class="up-kpi-lbl">Total Ganado</span>
+  </div>
+  <div class="up-kpi">
+    {% set net = stats['ganado'] - stats['apostado'] %}
+    <span class="up-kpi-val" style="color:{% if net >= 0 %}#4ade80{% else %}#f87171{% endif %};">
+      {{ '+' if net >= 0 else '' }}COP${{ net|cop }}
+    </span>
+    <span class="up-kpi-lbl">Balance Neto</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="up-tabs" id="upTabs">
+  <button class="up-tab active" onclick="showTab('apuestas')"> Últimas Apuestas ({{ apuestas|length }})</button>
+  <button class="up-tab" onclick="showTab('depositos')"> Depósitos ({{ depositos|length }})</button>
+  <button class="up-tab" onclick="showTab('retiros')"> Retiros ({{ retiros|length }})</button>
+</div>
+
+<!-- APUESTAS -->
+<div id="tab-apuestas" class="up-tabcontent">
+  {% if apuestas %}
+  <div class="up-table-wrap">
+    <table class="up-table">
+      <thead><tr>
+        <th>Fecha</th><th>Juego</th><th>Apostado</th><th>Ganado</th><th>Resultado</th><th>Balance</th>
+      </tr></thead>
+      <tbody>
+        {% for a in apuestas %}
+        <tr>
+          <td style="color:var(--gris2);font-size:.78rem;">{{ a['fecha']|fecha }}</td>
+          <td>
+            <span style="font-size:.8rem;">
+              {% if a['juego_tipo']=='slots' %}{% elif a['juego_tipo']=='rueda' %}{% elif a['juego_tipo']=='cartas' %}{% else %}{% endif %}
+              {{ a['juego_nombre'] }}
+            </span>
+          </td>
+          <td style="text-align:right;">COP${{ a['monto_apostado']|cop }}</td>
+          <td style="text-align:right;color:{% if a['monto_ganado'] > 0 %}#4ade80{% else %}var(--gris2){% endif %};">
+            COP${{ a['monto_ganado']|cop }}
+          </td>
+          <td style="font-size:.75rem;color:var(--gris2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a['resultado'] }}</td>
+          <td style="text-align:right;">
+            {% set bal = a['monto_ganado'] - a['monto_apostado'] %}
+            <span style="color:{% if bal >= 0 %}#4ade80{% else %}#f87171{% endif %};font-weight:700;font-size:.82rem;">
+              {{ '+' if bal >= 0 else '' }}COP${{ bal|cop }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="up-empty"> Sin apuestas registradas</div>
+  {% endif %}
+</div>
+
+<!-- DEPÓSITOS -->
+<div id="tab-depositos" class="up-tabcontent" style="display:none;">
+  {% if depositos %}
+  <div class="up-table-wrap">
+    <table class="up-table">
+      <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for d in depositos %}
+        <tr>
+          <td style="color:var(--gris2);font-size:.78rem;">{{ d['fecha']|fecha }}</td>
+          <td style="font-weight:700;color:#4ade80;">COP${{ d['monto']|cop }}</td>
+          <td style="font-size:.8rem;color:var(--gris2);">{{ d.get('metodo','—') }}</td>
+          <td>
+            {% if d['estado']=='aprobado' %}<span class="est-badge est-ok"> Aprobado</span>
+            {% elif d['estado']=='pendiente' %}<span class="est-badge est-pend">⏳ Pendiente</span>
+            {% else %}<span class="est-badge est-rej"> Rechazado</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="up-empty"> Sin depósitos registrados</div>
+  {% endif %}
+</div>
+
+<!-- RETIROS -->
+<div id="tab-retiros" class="up-tabcontent" style="display:none;">
+  {% if retiros %}
+  <div class="up-table-wrap">
+    <table class="up-table">
+      <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Estado</th></tr></thead>
+      <tbody>
+        {% for r in retiros %}
+        <tr>
+          <td style="color:var(--gris2);font-size:.78rem;">{{ r['fecha']|fecha }}</td>
+          <td style="font-weight:700;color:#f87171;">COP${{ r['monto']|cop }}</td>
+          <td style="font-size:.8rem;color:var(--gris2);">{{ r.get('metodo','—') }}</td>
+          <td>
+            {% if r['estado']=='aprobado' %}<span class="est-badge est-ok"> Aprobado</span>
+            {% elif r['estado']=='pendiente' %}<span class="est-badge est-pend">⏳ Pendiente</span>
+            {% else %}<span class="est-badge est-rej"> Rechazado</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="up-empty"> Sin retiros registrados</div>
+  {% endif %}
+</div>
+
+<!-- Modal Bloqueo -->
+<div id="modalBloqueo" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:var(--negro2,#12121a);border-radius:16px;padding:32px;max-width:400px;width:90%;border:1px solid rgba(200,16,46,.3);">
+    <h3 style="margin-bottom:8px;font-family:'Rajdhani',serif;">Bloquear: {{ u['nombre'] }}</h3>
+    <p style="color:var(--gris,#7a7a8c);margin-bottom:16px;font-size:.85rem;">Ingresa el motivo del bloqueo</p>
+    <form method="POST" action="/admin/usuario/{{ u['id'] }}/bloquear">
+      <input type="text" name="razon" required placeholder="Ej: Actividad sospechosa"
+             style="width:100%;padding:12px;border:2px solid rgba(200,16,46,.2);background:rgba(0,0,0,.3);color:white;border-radius:8px;margin-bottom:16px;font-size:.9rem;box-sizing:border-box;">
+      <div style="display:flex;gap:10px;">
+        <button type="submit" style="flex:1;padding:12px;background:#dc143c;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Bloquear</button>
+        <button type="button" onclick="document.getElementById('modalBloqueo').style.display='none'" style="flex:1;padding:12px;background:rgba(255,255,255,.08);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.up-header{display:flex;align-items:center;gap:20px;background:linear-gradient(135deg,rgba(20,8,18,.98),rgba(14,6,12,.99));border:1px solid rgba(200,16,46,.2);border-radius:18px;padding:28px;margin-bottom:24px;}
+.up-avatar{width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--rojo2,#c8102e),#8b0000);color:white;font-size:2rem;font-weight:900;font-family:'Rajdhani',sans-serif;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 24px rgba(200,16,46,.3);}
+.up-info{flex:1;}
+.up-nombre{font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;color:var(--blanco);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}
+.up-email{font-size:.85rem;color:var(--gris2,#9ca3af);margin-bottom:4px;}
+.up-meta{font-size:.75rem;color:var(--gris,#7a7a8c);}
+.up-badge{font-size:.65rem;font-weight:700;border-radius:20px;padding:3px 10px;}
+.badge-active{background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25);}
+.badge-block{background:rgba(220,20,60,.12);color:#f87171;border:1px solid rgba(220,20,60,.25);}
+.badge-admin{background:rgba(201,168,76,.12);color:var(--dorado2);border:1px solid rgba(201,168,76,.25);}
+.btn-accion-u{padding:10px 20px;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;border:none;font-family:'Rajdhani',sans-serif;letter-spacing:.04em;}
+.btn-green{background:rgba(34,197,94,.15);color:#4ade80;border:1.5px solid rgba(34,197,94,.35);}
+.btn-red{background:rgba(220,20,60,.12);color:#f87171;border:1.5px solid rgba(220,20,60,.3);}
+
+.up-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:24px;}
+.up-kpi{background:linear-gradient(135deg,rgba(18,8,22,.98),rgba(12,6,16,.99));border:1px solid rgba(200,16,46,.15);border-radius:14px;padding:18px 16px;text-align:center;}
+.up-kpi-val{display:block;font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;color:var(--blanco);margin-bottom:4px;}
+.up-kpi-lbl{font-size:.65rem;color:var(--gris);text-transform:uppercase;letter-spacing:.07em;}
+
+.up-tabs{display:flex;gap:4px;margin-bottom:16px;background:rgba(0,0,0,.3);border-radius:12px;padding:4px;}
+.up-tab{flex:1;padding:10px 16px;border:none;border-radius:9px;background:transparent;color:var(--gris2);font-size:.82rem;font-weight:600;cursor:pointer;font-family:'Rajdhani',sans-serif;transition:all .2s;}
+.up-tab.active{background:rgba(200,16,46,.2);color:var(--rojo3,#ff4444);box-shadow:0 2px 8px rgba(200,16,46,.2);}
+.up-tab:hover:not(.active){background:rgba(255,255,255,.05);color:var(--blanco);}
+
+.up-tabcontent{background:linear-gradient(135deg,rgba(18,8,22,.98),rgba(12,6,16,.99));border:1px solid rgba(200,16,46,.12);border-radius:16px;padding:20px;}
+.up-table-wrap{overflow-x:auto;}
+.up-table{width:100%;border-collapse:collapse;font-size:.82rem;}
+.up-table th{padding:10px 14px;text-align:left;color:var(--gris,#7a7a8c);font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid rgba(200,16,46,.12);}
+.up-table td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--blanco);}
+.up-table tr:hover td{background:rgba(200,16,46,.04);}
+.up-empty{text-align:center;padding:40px;color:var(--gris);font-size:.9rem;}
+.est-badge{font-size:.7rem;font-weight:700;border-radius:20px;padding:3px 10px;}
+.est-ok{background:rgba(34,197,94,.12);color:#4ade80;}
+.est-pend{background:rgba(251,191,36,.1);color:#fbbf24;}
+.est-rej{background:rgba(220,20,60,.1);color:#f87171;}
+</style>
+
+<script>
+function showTab(name){
+  document.querySelectorAll('.up-tabcontent').forEach(el=>el.style.display='none');
+  document.querySelectorAll('.up-tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+name).style.display='';
+  event.target.classList.add('active');
+}
+</script>
+{% endblock %}
