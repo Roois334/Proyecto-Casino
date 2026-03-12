@@ -47,12 +47,13 @@ os.makedirs(SESSION_DIR, exist_ok=True)
 
 def get_db():
     conn = pymysql.connect(
-        host     = app.config['MYSQL_HOST'],
-        user     = app.config['MYSQL_USER'],
-        password = app.config['MYSQL_PASSWORD'],
-        database = app.config['MYSQL_DB'],
-        charset  = 'utf8mb4',
-        cursorclass = pymysql.cursors.DictCursor
+        host        = app.config['MYSQL_HOST'],
+        user        = app.config['MYSQL_USER'],
+        password    = app.config['MYSQL_PASSWORD'],
+        database    = app.config['MYSQL_DB'],
+        charset     = 'utf8mb4',
+        cursorclass = pymysql.cursors.DictCursor,
+        connect_timeout = 10
     )
     return conn
 
