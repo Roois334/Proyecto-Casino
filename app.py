@@ -180,11 +180,9 @@ def init_db():
         (1,'Tragamonedas','Gira los rodillos y consigue 3 símbolos iguales.','','slots',96.50,100.00,99999999.00,100),
         (2,'Ruleta','Apuesta a número exacto (x36), color, par/impar o alto/bajo.','','rueda',97.30,100.00,99999999.00,36),
         (3,'Blackjack','Llega a 21 sin pasarte. Supera al crupier.','','cartas',99.40,100.00,99999999.00,2),
-        (4,'Dados','Elige un número del 1 al 6. Si aciertas, ganas x5.','','dados',97.80,100.00,99999999.00,5),
-        (5,'Colores','Elige Rojo o Dorado. Acierta el color y gana x2.','◆','colores',97.10,100.00,99999999.00,2)
+        (4,'Dados','Elige un número del 1 al 6. Si aciertas, ganas x5.','','dados',97.80,100.00,99999999.00,5)
         ON DUPLICATE KEY UPDATE nombre=VALUES(nombre),descripcion=VALUES(descripcion),icono=VALUES(icono),tipo=VALUES(tipo),rtp=VALUES(rtp),apuesta_minima=VALUES(apuesta_minima),apuesta_maxima=VALUES(apuesta_maxima),multiplicador_maximo=VALUES(multiplicador_maximo)
     """)
-    cur.execute("UPDATE juegos SET activo=0 WHERE id=5")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=1")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=2")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=3")
@@ -820,17 +818,6 @@ def api_jugar():
             ganancia = apuesta*5; resultado = f'Salio {dado}! Acertaste x5'
         else:
             resultado = f'Salio {dado}, apostaste {num_ap}'
-
-    elif game['tipo'] == 'colores':
-        color_ap = extra.get('color','rojo')
-        opciones = ['rojo','dorado']
-        color_res = random.choices(opciones, weights=[50,50])[0]
-        detalles = {'color':color_res,'apostado':color_ap}
-        if color_res == color_ap:
-            ganancia = apuesta * 2
-            resultado = f'Salio {color_res.upper()}! Ganaste x2'
-        else:
-            resultado = f'Salio {color_res.upper()}, apostaste {color_ap.upper()}'
 
     neto        = ganancia - apuesta
     nuevo_saldo = saldo_actual + neto
