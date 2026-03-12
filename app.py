@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify, flash
 from config import Config
-import os, random, json
+import os, random, json, smtplib, secrets
 import pymysql
 import pymysql.cursors
 from datetime import datetime, date, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -14,7 +16,9 @@ app.config.from_object(Config)
 def formato_cop(value):
     try:
         v = float(value or 0)
+        # Format with thousands separator as dot (Colombian standard)
         if v == int(v):
+            # Use comma as thousands sep then replace with dot
             formatted = "{:,.0f}".format(int(v)).replace(",", ".")
             return formatted
         else:
@@ -26,6 +30,7 @@ def formato_cop(value):
         return str(value)
 
 # ─── FILTRO PARA FECHAS MYSQL ────────────────────────────────────────────────
+# MySQL devuelve objetos datetime, no strings. Este filtro los convierte de forma segura.
 @app.template_filter("fecha")
 def formato_fecha(value, fmt="%Y-%m-%d"):
     if value is None:
@@ -77,6 +82,7 @@ def init_db():
             razon_bloqueo    TEXT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """)
+    # Migracion: agregar saldo_rsc si no existe (para DBs ya creadas)
     try:
         cur.execute("ALTER TABLE usuarios ADD COLUMN saldo_rsc DECIMAL(14,4) DEFAULT 0.0000")
         conn.commit()
@@ -174,20 +180,24 @@ def init_db():
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """)
 
+    # Juegos iniciales
     cur.execute("""
         INSERT INTO juegos (id,nombre,descripcion,icono,tipo,rtp,apuesta_minima,apuesta_maxima,multiplicador_maximo)
         VALUES
         (1,'Tragamonedas','Gira los rodillos y consigue 3 símbolos iguales.','','slots',96.50,100.00,99999999.00,100),
         (2,'Ruleta','Apuesta a número exacto (x36), color, par/impar o alto/bajo.','','rueda',97.30,100.00,99999999.00,36),
         (3,'Blackjack','Llega a 21 sin pasarte. Supera al crupier.','','cartas',99.40,100.00,99999999.00,2),
-        (4,'Dados','Elige un número del 1 al 6. Si aciertas, ganas x5.','','dados',97.80,100.00,99999999.00,5)
+        (4,'Dados','Elige un número del 1 al 6. Si aciertas, ganas x5.','','dados',97.80,100.00,99999999.00,5),
+        (5,'Colores','Elige Rojo o Dorado. Acierta el color y gana x2.','◆','colores',97.10,100.00,99999999.00,2)
         ON DUPLICATE KEY UPDATE nombre=VALUES(nombre),descripcion=VALUES(descripcion),icono=VALUES(icono),tipo=VALUES(tipo),rtp=VALUES(rtp),apuesta_minima=VALUES(apuesta_minima),apuesta_maxima=VALUES(apuesta_maxima),multiplicador_maximo=VALUES(multiplicador_maximo)
     """)
+    cur.execute("UPDATE juegos SET activo=0 WHERE id=5")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=1")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=2")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=3")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=4")
 
+    # Promociones iniciales
     cur.execute("""
         INSERT IGNORE INTO promociones (nombre,descripcion,tipo,porcentaje,monto_maximo)
         VALUES
@@ -196,7 +206,16 @@ def init_db():
         ('Programa VIP','1 punto por cada COP$10 apostado.','vip',5,1000.00)
     """)
 
-
+    # Admin por defecto
+    cur.execute("SELECT id FROM usuarios WHERE email='admin@royalspin.com'")
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO usuarios (nombre,email,password,fecha_nacimiento,rol,saldo,saldo_rsc) VALUES (%s,%s,%s,%s,%s,%s,%s)",
+            ('Administrador','admin@royalspin.com', generate_password_hash('admin123'),'1990-01-01','admin',0.00, 1000000.0)
+        )
+    else:
+        # Asegurar que admin tenga saldo_rsc si ya existe
+        cur.execute("UPDATE usuarios SET saldo_rsc=1000000.0 WHERE email='admin@royalspin.com' AND saldo_rsc=0")
 
     conn.commit()
     cur.close()
@@ -208,6 +227,83 @@ try:
 except Exception as e:
     print(f"[DB ERROR] No se pudo conectar a MySQL: {e}")
     print("[DB] Verifica MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD y MYSQL_DB en config.py")
+
+# ─── EMAIL ─────────────────────────────────────────────────────────────────────
+
+def enviar_email(destino, asunto, cuerpo_html):
+    cfg = app.config.get('MAIL_CONFIG', {})
+    remitente = cfg.get('remitente','')
+    password  = cfg.get('password','')
+    nombre    = cfg.get('nombre','Royal Spin')
+    if not remitente or not password:
+        return False
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = asunto
+        msg['From']    = f'{nombre} <{remitente}>'
+        msg['To']      = destino
+        msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(remitente, password)
+            server.sendmail(remitente, destino, msg.as_string())
+        return True
+    except Exception as e:
+        print(f'[EMAIL ERROR] {e}')
+        return False
+
+# ─── EMAIL HTML BONITO ─────────────────────────────────────────────────────────
+
+def _html_email(titulo, nombre, codigo, subtitulo="", es_admin=False):
+    """Genera HTML visual para todos los emails de codigo Royal Spin"""
+    label = "ADMIN" if es_admin else "CASINO"
+    digits = str(codigo).ljust(6,'0')[:6]
+
+    def digit_cell(d):
+        return (f'<td style="padding:0 4px;">'
+                f'<div style="width:46px;height:60px;background:linear-gradient(160deg,#1a1206,#110e04);'
+                f'border:1.5px solid rgba(201,168,76,.5);border-radius:10px;display:inline-block;'
+                f'text-align:center;line-height:60px;font-size:1.9rem;font-weight:900;'
+                f'font-family:Courier New,monospace;color:#e8c96a;'
+                f'box-shadow:0 4px 18px rgba(201,168,76,.15);">{d}</div></td>')
+
+    d0,d1,d2,d3,d4,d5 = [digit_cell(digits[i]) for i in range(6)]
+
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{titulo}</title></head>
+<body style="margin:0;padding:0;background:#06050a;font-family:Helvetica Neue,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#06050a;min-height:100vh;"><tr><td align="center" style="padding:40px 20px;">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
+<tr><td style="background:linear-gradient(135deg,#0c0206,#1a0610,#0c0206);border-radius:20px 20px 0 0;border:1px solid rgba(200,16,46,.4);border-bottom:none;padding:10px 44px 28px;text-align:center;">
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;"><tr><td style="height:3px;background:linear-gradient(90deg,transparent,#c8102e 30%,#c9a84c 50%,#c8102e 70%,transparent);border-radius:2px;"></td></tr></table>
+<div style="font-size:.58rem;font-weight:800;letter-spacing:.5em;text-transform:uppercase;color:#c9a84c;margin-bottom:14px;">ROYAL SPIN {label}</div>
+<h1 style="margin:0 0 8px;font-size:1.4rem;font-weight:800;color:#f2ece0;letter-spacing:.02em;">{titulo}</h1>
+<p style="margin:0;font-size:.78rem;color:rgba(150,130,168,.7);line-height:1.5;">{subtitulo}</p>
+</td></tr>
+<tr><td style="background:linear-gradient(160deg,#110610,#0c040a);border:1px solid rgba(200,16,46,.35);border-top:none;border-bottom:none;padding:36px 44px;">
+<p style="font-size:.88rem;color:#7a7090;margin:0 0 24px;line-height:1.7;text-align:center;">
+Hola <strong style="color:#f2ece0;">{nombre}</strong>, usa este codigo para confirmar la accion.<br>
+Caduca en <strong style="color:#c8102e;font-size:.95rem;">15 minutos</strong>.
+</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+<tr><td style="background:linear-gradient(135deg,rgba(200,16,46,.09),rgba(100,4,16,.05));border:1.5px solid rgba(200,16,46,.38);border-radius:16px;padding:28px 20px;text-align:center;">
+<div style="font-size:.58rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:rgba(200,16,46,.7);margin-bottom:18px;">CODIGO DE VERIFICACION</div>
+<table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>{d0}{d1}{d2}{d3}{d4}{d5}</tr></table>
+<div style="font-size:.7rem;color:#4a4060;margin-top:16px;">Expira en <span style="color:rgba(200,16,46,.9);font-weight:700;">15 minutos</span></div>
+</td></tr></table>
+<table width="100%" cellpadding="0" cellspacing="0"><tr>
+<td style="background:rgba(255,255,255,.02);border-left:3px solid rgba(200,16,46,.35);border-radius:0 8px 8px 0;padding:12px 16px;">
+<p style="margin:0;font-size:.74rem;color:#4a4060;line-height:1.6;">
+Si no solicitaste esta accion, ignora este correo. Tu cuenta permanece segura.
+</p></td></tr></table>
+</td></tr>
+<tr><td style="background:rgba(0,0,0,.7);border:1px solid rgba(200,16,46,.2);border-top:none;border-radius:0 0 20px 20px;padding:18px 44px;text-align:center;">
+<div style="font-size:.62rem;color:#2a2040;letter-spacing:.07em;">Royal Spin Casino &mdash; Solo para mayores de 18 anos</div>
+</td></tr>
+</table>
+</td></tr></table>
+</body></html>"""
+
 
 # ─── DECORADORES ───────────────────────────────────────────────────────────────
 
@@ -350,10 +446,88 @@ def _max_date():
 
 # ─── RESET CONTRASEÑA ──────────────────────────────────────────────────────────
 
-@app.route('/forgot-password')
+@app.route('/forgot-password', methods=['GET','POST'])
 def forgot_password():
-    flash('Para recuperar tu contraseña contacta al administrador por soporte.','info')
-    return redirect(url_for('login'))
+    if request.method == 'POST':
+        email = request.form.get('email','').strip()
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('SELECT * FROM usuarios WHERE email=%s', (email,))
+        user = cur.fetchone()
+        if user:
+            # Generar código de 6 dígitos
+            codigo = str(random.randint(100000, 999999))
+            expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+            cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, user['id']))
+            conn.commit()
+            nombre = user['nombre']
+            html = _html_email('Recuperar Contraseña', nombre, codigo, 'Restablece tu contraseña de forma segura')
+            ok = enviar_email(email, 'Codigo de recuperacion - Royal Spin', html)
+            if ok:
+                flash('Te enviamos un codigo de 6 digitos a tu correo.','success')
+                cur.close(); conn.close()
+                return redirect(url_for('verificar_codigo', email=email))
+            else:
+                flash('No se pudo enviar el email. Verifica config.py','error')
+        else:
+            flash('Si ese email esta registrado, recibiras el codigo.','success')
+        cur.close(); conn.close()
+    return render_template('forgot_password.html')
+
+@app.route('/verificar-codigo', methods=['GET','POST'])
+def verificar_codigo():
+    email = request.args.get('email','') or request.form.get('email','')
+    if request.method == 'POST':
+        codigo_ingresado = request.form.get('codigo','').strip()
+        email = request.form.get('email','')
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('SELECT * FROM usuarios WHERE email=%s AND reset_token=%s', (email, codigo_ingresado))
+        user = cur.fetchone()
+        if not user:
+            flash('Codigo incorrecto. Intentalo de nuevo.','error')
+            cur.close(); conn.close()
+            return render_template('verificar_codigo.html', email=email)
+        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
+            flash('El codigo ha expirado. Solicita uno nuevo.','error')
+            cur.close(); conn.close()
+            return redirect(url_for('forgot_password'))
+        # Codigo valido — redirigir a reset con token
+        cur.close(); conn.close()
+        return redirect(url_for('reset_password', token=codigo_ingresado, email=email))
+    return render_template('verificar_codigo.html', email=email)
+
+@app.route('/reset-password/<token>', methods=['GET','POST'])
+def reset_password(token):
+    email = request.args.get('email','') or request.form.get('email','')
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('SELECT * FROM usuarios WHERE reset_token=%s', (token,))
+    user = cur.fetchone()
+    if not user:
+        flash('Enlace invalido o expirado','error')
+        cur.close(); conn.close()
+        return redirect(url_for('login'))
+    if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
+        flash('El codigo ha expirado. Solicita uno nuevo.','error')
+        cur.close(); conn.close()
+        return redirect(url_for('forgot_password'))
+    if request.method == 'POST':
+        nueva = request.form.get('password_nueva','')
+        conf  = request.form.get('confirmar','')
+        if len(nueva) < 6:
+            flash('Minimo 6 caracteres','error')
+            cur.close(); conn.close()
+            return render_template('reset_password.html', token=token, email=email)
+        if nueva != conf:
+            flash('Las contrasenas no coinciden','error')
+            cur.close(); conn.close()
+            return render_template('reset_password.html', token=token, email=email)
+        cur.execute('UPDATE usuarios SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
+                    (generate_password_hash(nueva), user['id']))
+        conn.commit()
+        cur.close(); conn.close()
+        flash('Contrasena restablecida. Ya puedes iniciar sesion.','success')
+        return redirect(url_for('login'))
+    cur.close(); conn.close()
+    return render_template('reset_password.html', token=token, email=email)
 
 @app.route('/logout')
 def logout():
@@ -404,6 +578,7 @@ def juego(juego_id):
         return redirect(url_for('admin_panel'))
     sync_saldo_session()
 
+    # Limpiar sesión de BJ abandonada sin reembolso (el jugador perdió al salirse)
     if session.get('blackjack_state'):
         session.pop('blackjack_state', None)
         session.modified = True
@@ -445,8 +620,9 @@ def api_jugar():
 
     saldo_actual = float(user['saldo'])
 
+    # Sin límite máximo — el jugador puede apostar hasta su saldo completo
     apuesta_min_real = 100.0
-    apuesta_max_real = saldo_actual
+    apuesta_max_real = saldo_actual  # máximo = saldo disponible
 
     # ══ BLACKJACK INTERACTIVO ══
     if game['tipo'] == 'cartas':
@@ -514,18 +690,21 @@ def api_jugar():
                 return jsonify({'error':'No hay partida activa'}), 400
             nueva_carta = random.choice(cartas_baraja)
             en_split = bj.get('en_split', False)
-
+            
             if en_split and 'split_mano' in bj:
+                # Drawing to split hand 2
                 bj['split_mano'].append(nueva_carta)
                 suma_j = calc_suma(bj['split_mano'])
                 session['blackjack_state'] = bj
                 session.modified = True
                 if suma_j > 21:
+                    # Split mano 2 bust - resolve both hands
                     apuesta_bj = bj.get('split_apuesta', bj['apuesta'])
                     mano_c = bj['mano_c']
                     while calc_suma(mano_c) < 17:
                         mano_c.append(random.choice(cartas_baraja))
                     suma_c = calc_suma(mano_c)
+                    # Mano 1 result (con detección de blackjack natural)
                     mano_j1_ref = bj['mano_j']
                     suma_m1 = calc_suma(mano_j1_ref)
                     es_bj_m1 = len(mano_j1_ref) == 2 and suma_m1 == 21
@@ -537,7 +716,7 @@ def api_jugar():
                     elif suma_m1 > suma_c: g1 = apuesta_bj * 2
                     elif suma_m1 == suma_c: g1 = apuesta_bj
                     else: g1 = 0
-                    ganancia = g1
+                    ganancia = g1  # mano2 bust = 0
                     msg = f'Mano 2 bust! Mano 1: {"Gana" if g1>0 else "Pierde"}'
                     nuevo_saldo2 = float(session['usuario']['saldo']) + ganancia
                     cur.execute('UPDATE usuarios SET saldo=%s, puntos_vip=puntos_vip+%s WHERE id=%s',
@@ -552,12 +731,15 @@ def api_jugar():
                 cur.close(); conn.close()
                 return jsonify({'estado':'split_jugando','mano_jugador':bj['split_mano'],'suma_j':suma_j,'suma_j2':suma_j,'split_mano':bj['split_mano'],'terminado':False,'nuevo_saldo':session['usuario']['saldo'],'en_split':True})
             else:
+                # Drawing to main hand (or split hand 1)
                 if 'split_mano' in bj and not en_split:
+                    # Split hand 1
                     bj['mano_j'].append(nueva_carta)
                     suma_j = calc_suma(bj['mano_j'])
                     session['blackjack_state'] = bj
                     session.modified = True
                     if suma_j > 21:
+                        # Mano 1 bust - auto move to mano 2
                         session['blackjack_state'] = bj
                         session.modified = True
                         cur.close(); conn.close()
@@ -565,6 +747,7 @@ def api_jugar():
                     cur.close(); conn.close()
                     return jsonify({'estado':'split_jugando','mano_jugador':bj['mano_j'],'suma_j':suma_j,'terminado':False,'nuevo_saldo':session['usuario']['saldo'],'en_split':False})
                 else:
+                    # Normal single hand
                     bj['mano_j'].append(nueva_carta)
                     suma_j = calc_suma(bj['mano_j'])
                     session['blackjack_state'] = bj
@@ -603,11 +786,12 @@ def api_jugar():
             if not bj:
                 cur.close(); conn.close()
                 return jsonify({'error':'No hay partida activa'}), 400
-
+            
             en_split = bj.get('en_split', False)
             tiene_split = 'split_mano' in bj
-
+            
             if tiene_split and not en_split:
+                # Mano 1 del split: doblar o plantarse
                 if accion == 'doblar':
                     if saldo_actual < bj['apuesta']:
                         cur.close(); conn.close()
@@ -623,19 +807,22 @@ def api_jugar():
                     session['blackjack_state'] = bj
                     session.modified = True
                     cur.close(); conn.close()
+                    # Si se pasó de 21 con el doblar, igual pasamos a mano 2
                     return jsonify({'estado':'split_mano1_listo','mano_jugador':bj['mano_j'],'split_mano':bj['split_mano'],'suma_j':suma_m1,'suma_j2':calc_suma(bj['split_mano']),'nuevo_saldo':ns_dbl,'terminado':False,'doblado':True})
+                # Plantarse en mano 1 - mover a mano 2
                 session['blackjack_state'] = bj
                 session.modified = True
                 cur.close(); conn.close()
                 return jsonify({'estado':'split_mano1_listo','mano_jugador':bj['mano_j'],'split_mano':bj['split_mano'],'suma_j':calc_suma(bj['mano_j']),'suma_j2':calc_suma(bj['split_mano']),'nuevo_saldo':session['usuario']['saldo'],'terminado':False})
-
+            
             if tiene_split and en_split:
+                # Planting/finishing split hand 2 - resolve everything
                 mano_j1 = bj['mano_j']
                 mano_j2 = bj.get('split_mano', [])
                 mano_c = bj['mano_c']
                 apuesta_base = bj.get('split_apuesta', bj['apuesta'])
-                apuesta_bj = bj.get('split_apuesta_m1', apuesta_base)
-
+                apuesta_bj = bj.get('split_apuesta_m1', apuesta_base)  # si mano1 dobló, usa apuesta doble
+                
                 if accion == 'doblar':
                     if saldo_actual < apuesta_bj:
                         cur.close(); conn.close()
@@ -648,14 +835,16 @@ def api_jugar():
                     conn.commit(); session['usuario']['saldo'] = ns_dbl
                 else:
                     apuesta_bj_2 = apuesta_bj
-
+                
+                # Dealer draws
                 while calc_suma(mano_c) < 17:
                     mano_c.append(random.choice(cartas_baraja))
                 suma_c = calc_suma(mano_c)
                 suma_j1 = calc_suma(mano_j1)
                 suma_j2 = calc_suma(mano_j2)
-
+                
                 def es_blackjack_natural(mano):
+                    """Blackjack natural: exactamente 2 cartas sumando 21"""
                     return len(mano) == 2 and calc_suma(mano) == 21
 
                 def calc_result(suma_j, ap, suma_c, mano=None):
@@ -668,13 +857,13 @@ def api_jugar():
                     elif suma_j > suma_c: return ap*2, f'Ganaste ({suma_j})'
                     elif suma_j == suma_c: return ap, f'Empate ({suma_j})'
                     else: return 0, f'Perdiste ({suma_j})'
-
+                
                 g1, msg1 = calc_result(suma_j1, apuesta_bj, suma_c, mano_j1)
                 g2, msg2 = calc_result(suma_j2, apuesta_bj_2, suma_c, mano_j2)
                 ganancia_total = g1 + g2
                 apuesta_total = apuesta_bj + apuesta_bj_2
                 msg_final = f'Mano 1: {msg1}  —  Mano 2: {msg2}'
-
+                
                 nuevo_saldo2 = float(session['usuario']['saldo']) + ganancia_total
                 cur.execute('UPDATE usuarios SET saldo=%s, puntos_vip=puntos_vip+%s WHERE id=%s',
                             (nuevo_saldo2, int(apuesta_total/10), session['usuario']['id']))
@@ -686,7 +875,8 @@ def api_jugar():
                 session.modified = True
                 cur.close(); conn.close()
                 return jsonify({'estado':'terminado','mano_jugador':mano_j1,'split_mano':mano_j2,'mano_crupier':mano_c,'suma_j':suma_j1,'suma_j2':suma_j2,'suma_c':suma_c,'resultado':msg_final,'nuevo_saldo':nuevo_saldo2,'gano':ganancia_total>apuesta_total,'ganancia':ganancia_total,'terminado':True})
-
+            
+            # Normal (non-split) mode
             mano_j = bj['mano_j']; mano_c = bj['mano_c']; apuesta_bj = bj['apuesta']
             if accion == 'doblar':
                 if saldo_actual < apuesta_bj:
@@ -726,6 +916,7 @@ def api_jugar():
             return jsonify({'estado':'terminado','mano_jugador':mano_j,'mano_crupier':mano_c,'suma_j':suma_j,'suma_c':suma_c,'resultado':msg,'nuevo_saldo':nuevo_saldo2,'gano':ganancia>0,'ganancia':ganancia,'terminado':True})
 
     # ══ OTROS JUEGOS ══
+    # For roulette with multi-bet, validation is done inside the roulette block
     if game['tipo'] != 'rueda':
         if apuesta < apuesta_min_real:
             cur.close(); conn.close()
@@ -756,23 +947,26 @@ def api_jugar():
 
     elif game['tipo'] == 'rueda':
         bets_dict = extra.get('bets', {})
+        # Legacy single bet support
         if not bets_dict:
             tipo_ap = extra.get('tipo','rojo')
             bets_dict = {tipo_ap: apuesta}
-
+        
         numero  = random.randint(0,36)
         rojos   = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
         color   = 'verde' if numero==0 else ('rojo' if numero in rojos else 'negro')
         columna = 0 if numero==0 else ((numero-1)%3+1)
         docena  = 0 if numero==0 else ((numero-1)//12+1)
-
+        
+        # Calculate total apostado and validate
         total_apostado = sum(float(v) for v in bets_dict.values())
         detalles = {'numero':numero,'color':color,'total_apostado':total_apostado}
-
+        
         if saldo_actual < total_apostado:
             cur.close(); conn.close()
             return jsonify({'error':'Saldo insuficiente'}), 400
-
+        
+        # Calculate winnings for each bet
         ganancia = 0
         winning_bets = []
         for tipo_ap, monto_ap in bets_dict.items():
@@ -803,7 +997,8 @@ def api_jugar():
             elif tipo_ap == 'col3' and columna == 3:
                 g = monto_ap * 3; winning_bets.append('3ª Col x3')
             ganancia += g
-
+        
+        # Override apuesta with total for saldo deduction
         apuesta = total_apostado
         if winning_bets:
             resultado = f'Salió {numero} ({color}) - {", ".join(winning_bets)}'
@@ -818,6 +1013,17 @@ def api_jugar():
             ganancia = apuesta*5; resultado = f'Salio {dado}! Acertaste x5'
         else:
             resultado = f'Salio {dado}, apostaste {num_ap}'
+
+    elif game['tipo'] == 'colores':
+        color_ap = extra.get('color','rojo')
+        opciones = ['rojo','dorado']
+        color_res = random.choices(opciones, weights=[50,50])[0]
+        detalles = {'color':color_res,'apostado':color_ap}
+        if color_res == color_ap:
+            ganancia = apuesta * 2
+            resultado = f'Salio {color_res.upper()}! Ganaste x2'
+        else:
+            resultado = f'Salio {color_res.upper()}, apostaste {color_ap.upper()}'
 
     neto        = ganancia - apuesta
     nuevo_saldo = saldo_actual + neto
@@ -847,8 +1053,8 @@ def api_saldo():
 @app.route('/depositar', methods=['GET','POST'])
 @login_required
 def depositar():
-    RSC_RATE  = 1000
-    RSC_BONUS = 0.10
+    RSC_RATE  = 1000   # 1 RSC = COP$1.000
+    RSC_BONUS = 0.10   # bono 10% al depositar con RoyalCoin
     if request.method == 'POST':
         try: monto_rsc = float(request.form.get('monto',0))
         except: monto_rsc = 0
@@ -879,11 +1085,12 @@ def retirar():
     user = cur.fetchone()
     if request.method == 'POST':
         RSC_RATE = 1000.0
-        RSC_MIN  = 10
+        RSC_MIN  = 10       # mínimo 10 RSC
         try: monto_cop = float(request.form.get('monto', 0))
         except: monto_cop = 0
         monto_rsc = monto_cop / RSC_RATE
 
+        # Validaciones
         if monto_cop <= 0 or monto_rsc < RSC_MIN:
             flash(f'El mínimo de retiro es {RSC_MIN} RSC (COP${RSC_MIN * RSC_RATE:,.0f})','error')
             cur.close(); conn.close()
@@ -898,6 +1105,7 @@ def retirar():
         cuenta = request.form.get('cuenta_destino', '').strip()
         nota   = f'Retiro en RoyalCoin: {monto_rsc:.0f} RSC = COP${monto_cop:,.0f}. Nota: {cuenta}'
 
+        # Descontar saldo COP del jugador y registrar retiro
         cur.execute('UPDATE usuarios SET saldo=saldo-%s WHERE id=%s', (monto_cop, session['usuario']['id']))
         cur.execute(
             'INSERT INTO retiros (usuario_id,monto,metodo,cuenta_destino,estado,nota) VALUES (%s,%s,%s,%s,%s,%s)',
@@ -924,6 +1132,7 @@ def historial():
         JOIN juegos j ON a.juego_id=j.id WHERE a.usuario_id=%s ORDER BY a.fecha DESC LIMIT 200''',
         (session['usuario']['id'],))
     aps = cur.fetchall()
+    # Stats pérdidas y ganancias
     cur.execute('''SELECT
         COALESCE(SUM(monto_apostado),0) as total_apostado,
         COALESCE(SUM(monto_ganado),0) as total_ganado,
@@ -970,10 +1179,50 @@ def cambiar_password():
     if nueva != conf:
         flash('Las contraseñas no coinciden','error'); cur.close(); conn.close()
         return redirect(url_for('perfil'))
-    cur.execute('UPDATE usuarios SET password=%s WHERE id=%s', (generate_password_hash(nueva), session['usuario']['id']))
-    conn.commit(); cur.close(); conn.close()
-    flash('¡Contraseña actualizada exitosamente!','success')
-    return redirect(url_for('perfil'))
+    # Enviar código de verificación al correo
+    codigo = str(random.randint(100000, 999999))
+    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
+    conn.commit()
+    # Guardar nueva contraseña temporalmente en sesión (hash)
+    session['pending_password'] = generate_password_hash(nueva)
+    session['pending_password_exp'] = expiry
+    session.modified = True
+    html = _html_email('Cambio de Contraseña', user['nombre'], codigo, 'Confirma el cambio de tu contraseña')
+    ok = enviar_email(user['email'], 'Código para cambiar contraseña - Royal Spin', html)
+    cur.close(); conn.close()
+    if ok:
+        flash('Código enviado a tu correo. Ingrésalo para confirmar el cambio.','success')
+        return redirect(url_for('verificar_cambio_password'))
+    else:
+        flash('No se pudo enviar el código. Verifica config.py','error')
+        return redirect(url_for('perfil'))
+
+@app.route('/perfil/verificar-cambio-password', methods=['GET','POST'])
+@login_required
+def verificar_cambio_password():
+    if request.method == 'POST':
+        codigo = request.form.get('codigo','').strip()
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
+        user = cur.fetchone()
+        if not user:
+            flash('Código incorrecto','error'); cur.close(); conn.close()
+            return render_template('verificar_cambio.html', tipo='password')
+        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
+            flash('El código expiró. Inténtalo de nuevo.','error'); cur.close(); conn.close()
+            session.pop('pending_password', None)
+            return redirect(url_for('perfil'))
+        nueva_hash = session.pop('pending_password', None)
+        if not nueva_hash:
+            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
+            return redirect(url_for('perfil'))
+        cur.execute('UPDATE usuarios SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
+                    (nueva_hash, session['usuario']['id']))
+        conn.commit(); cur.close(); conn.close()
+        flash('¡Contraseña actualizada exitosamente!','success')
+        return redirect(url_for('perfil'))
+    return render_template('verificar_cambio.html', tipo='password')
 
 @app.route('/perfil/solicitar-cambio-email', methods=['POST'])
 @login_required
@@ -988,13 +1237,53 @@ def solicitar_cambio_email():
     if cur.fetchone():
         flash('Ese email ya está en uso','error'); cur.close(); conn.close()
         return redirect(url_for('perfil'))
-    cur.execute('UPDATE usuarios SET email=%s WHERE id=%s', (nuevo_email, session['usuario']['id']))
+    cur.execute('SELECT * FROM usuarios WHERE id=%s', (session['usuario']['id'],))
+    user = cur.fetchone()
+    codigo = str(random.randint(100000, 999999))
+    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
     conn.commit()
-    session['usuario']['email'] = nuevo_email
+    session['pending_email'] = nuevo_email
+    session['pending_email_exp'] = expiry
     session.modified = True
+    html = _html_email('Cambio de Correo', user['nombre'], codigo, 'Confirma el cambio de tu correo electronico')
+    ok = enviar_email(user['email'], 'Código para cambiar correo - Royal Spin', html)
     cur.close(); conn.close()
-    flash('¡Correo actualizado exitosamente!','success')
-    return redirect(url_for('perfil'))
+    if ok:
+        flash(f'Código enviado a tu correo actual para confirmar el cambio a {nuevo_email}','success')
+        return redirect(url_for('verificar_cambio_email'))
+    else:
+        flash('No se pudo enviar el código. Verifica config.py','error')
+        return redirect(url_for('perfil'))
+
+@app.route('/perfil/verificar-cambio-email', methods=['GET','POST'])
+@login_required
+def verificar_cambio_email():
+    if request.method == 'POST':
+        codigo = request.form.get('codigo','').strip()
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
+        user = cur.fetchone()
+        if not user:
+            flash('Código incorrecto','error'); cur.close(); conn.close()
+            return render_template('verificar_cambio.html', tipo='email')
+        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
+            flash('El código expiró. Inténtalo de nuevo.','error'); cur.close(); conn.close()
+            session.pop('pending_email', None)
+            return redirect(url_for('perfil'))
+        nuevo_email = session.pop('pending_email', None)
+        if not nuevo_email:
+            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
+            return redirect(url_for('perfil'))
+        cur.execute('UPDATE usuarios SET email=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
+                    (nuevo_email, session['usuario']['id']))
+        conn.commit()
+        session['usuario']['email'] = nuevo_email
+        session.modified = True
+        cur.close(); conn.close()
+        flash('¡Correo actualizado exitosamente!','success')
+        return redirect(url_for('perfil'))
+    return render_template('verificar_cambio.html', tipo='email')
 
 # ─── ADMIN: CAMBIO DE CONTRASEÑA CON CÓDIGO ────────────────────────────────────
 
@@ -1017,10 +1306,49 @@ def admin_cambiar_password():
     if nueva != conf:
         flash('Las contraseñas no coinciden','error'); cur.close(); conn.close()
         return redirect(url_for('admin_perfil'))
-    cur.execute('UPDATE usuarios SET password=%s WHERE id=%s', (generate_password_hash(nueva), session['usuario']['id']))
-    conn.commit(); cur.close(); conn.close()
-    flash('Contraseña actualizada exitosamente.','success')
-    return redirect(url_for('admin_perfil'))
+    codigo = str(random.randint(100000, 999999))
+    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
+    conn.commit()
+    session['pending_admin_password'] = generate_password_hash(nueva)
+    session['pending_admin_password_exp'] = expiry
+    session.modified = True
+    html = _html_email('Cambio de Contrasena Admin', user['nombre'], codigo, 'Confirma el cambio de contrasena de administrador', es_admin=True)
+    ok = enviar_email(user['email'], 'Código Admin - Cambio de Contraseña - Royal Spin', html)
+    cur.close(); conn.close()
+    if ok:
+        flash('Código enviado a tu correo de administrador.','success')
+        return redirect(url_for('admin_verificar_cambio_password'))
+    else:
+        flash('No se pudo enviar el código. Verifica config.py','error')
+        return redirect(url_for('admin_perfil'))
+
+@app.route('/admin/perfil/verificar-cambio-password', methods=['GET','POST'])
+@login_required
+@admin_required
+def admin_verificar_cambio_password():
+    if request.method == 'POST':
+        codigo = request.form.get('codigo','').strip()
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
+        user = cur.fetchone()
+        if not user:
+            flash('Código incorrecto. Verifica el correo e intenta de nuevo.','error'); cur.close(); conn.close()
+            return render_template('verificar_cambio.html', tipo='admin_password')
+        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
+            flash('El código expiró. Solicita uno nuevo.','error'); cur.close(); conn.close()
+            session.pop('pending_admin_password', None)
+            return redirect(url_for('admin_perfil'))
+        nueva_hash = session.pop('pending_admin_password', None)
+        if not nueva_hash:
+            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
+            return redirect(url_for('admin_perfil'))
+        cur.execute('UPDATE usuarios SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
+                    (nueva_hash, session['usuario']['id']))
+        conn.commit(); cur.close(); conn.close()
+        flash('Contrasena actualizada exitosamente.','success')
+        return redirect(url_for('admin_perfil'))
+    return render_template('verificar_cambio.html', tipo='admin_password')
 
 @app.route('/admin/perfil/solicitar-cambio-email', methods=['POST'])
 @login_required
@@ -1036,13 +1364,54 @@ def admin_solicitar_cambio_email():
     if cur.fetchone():
         flash('Ese email ya está en uso','error'); cur.close(); conn.close()
         return redirect(url_for('admin_perfil'))
-    cur.execute('UPDATE usuarios SET email=%s WHERE id=%s', (nuevo_email, session['usuario']['id']))
+    cur.execute('SELECT * FROM usuarios WHERE id=%s', (session['usuario']['id'],))
+    user = cur.fetchone()
+    codigo = str(random.randint(100000, 999999))
+    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
+    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
     conn.commit()
-    session['usuario']['email'] = nuevo_email
+    session['pending_admin_email'] = nuevo_email
+    session['pending_admin_email_exp'] = expiry
     session.modified = True
+    html = _html_email('Cambio de Correo Admin', user['nombre'], codigo, 'Confirma el cambio de correo de administrador', es_admin=True)
+    ok = enviar_email(user['email'], 'Código Admin - Cambio de Correo - Royal Spin', html)
     cur.close(); conn.close()
-    flash('Correo actualizado exitosamente.','success')
-    return redirect(url_for('admin_perfil'))
+    if ok:
+        flash('Código enviado a tu correo actual.','success')
+        return redirect(url_for('admin_verificar_cambio_email'))
+    else:
+        flash('No se pudo enviar el código','error')
+        return redirect(url_for('admin_perfil'))
+
+@app.route('/admin/perfil/verificar-cambio-email', methods=['GET','POST'])
+@login_required
+@admin_required
+def admin_verificar_cambio_email():
+    if request.method == 'POST':
+        codigo = request.form.get('codigo','').strip()
+        conn = get_db(); cur = conn.cursor()
+        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
+        user = cur.fetchone()
+        if not user:
+            flash('Código incorrecto. Verifica el correo e intenta de nuevo.','error'); cur.close(); conn.close()
+            return render_template('verificar_cambio.html', tipo='admin_email')
+        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
+            flash('El código expiró. Solicita uno nuevo.','error'); cur.close(); conn.close()
+            session.pop('pending_admin_email', None)
+            return redirect(url_for('admin_perfil'))
+        nuevo_email = session.pop('pending_admin_email', None)
+        if not nuevo_email:
+            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
+            return redirect(url_for('admin_perfil'))
+        cur.execute('UPDATE usuarios SET email=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
+                    (nuevo_email, session['usuario']['id']))
+        conn.commit()
+        session['usuario']['email'] = nuevo_email
+        session.modified = True
+        cur.close(); conn.close()
+        flash('Correo actualizado exitosamente.','success')
+        return redirect(url_for('admin_perfil'))
+    return render_template('verificar_cambio.html', tipo='admin_email')
 
 @app.route('/perfil/actualizar', methods=['POST'])
 @login_required
@@ -1069,7 +1438,6 @@ def promociones():
     return render_template('promociones.html', promociones=promos)
 
 @app.route('/soporte', methods=['GET','POST'])
-@login_required
 def soporte():
     if request.method == 'POST':
         a = request.form.get('asunto',''); m = request.form.get('mensaje','')
@@ -1110,6 +1478,7 @@ def admin_panel():
 @login_required
 @admin_required
 def admin_recargar_rsc():
+    """El admin recarga su propio saldo RSC (solo el dueño)."""
     try: cantidad = float(request.form.get('cantidad', 0))
     except: cantidad = 0
     if cantidad <= 0:
@@ -1145,6 +1514,7 @@ def admin_resolver_deposito(dep_id, accion):
                     (estado, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), session['usuario']['id'], dep_id))
         if accion=='aprobar':
             monto_dep = float(dep['monto'])
+            # Solo acreditar COP al jugador — el depósito NO descuenta RSC del admin
             cur.execute('UPDATE usuarios SET saldo=saldo+%s WHERE id=%s', (monto_dep, dep['usuario_id']))
         conn.commit()
         flash(f'Depósito #{dep_id} {estado}','success')
@@ -1175,6 +1545,7 @@ def admin_resolver_retiro(ret_id, accion):
         rsc_costo = monto_ret / RSC_RATE
 
         if accion == 'aprobar':
+            # Verificar que el admin tiene suficientes RSC ANTES de aprobar
             cur.execute("SELECT saldo_rsc FROM usuarios WHERE rol='admin' LIMIT 1")
             admin_row = cur.fetchone()
             admin_rsc = float(admin_row['saldo_rsc']) if admin_row else 0.0
@@ -1184,6 +1555,7 @@ def admin_resolver_retiro(ret_id, accion):
                 cur.close(); conn.close()
                 return redirect(url_for('admin_retiros'))
 
+            # Aprobar: descontar RSC del admin y actualizar estado
             cur.execute('UPDATE retiros SET estado=%s,fecha_resolucion=%s,admin_id=%s WHERE id=%s',
                         ('aprobado', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), session['usuario']['id'], ret_id))
             cur.execute("UPDATE usuarios SET saldo_rsc=saldo_rsc-%s WHERE rol='admin'", (rsc_costo,))
@@ -1191,6 +1563,7 @@ def admin_resolver_retiro(ret_id, accion):
             flash(f'✅ Retiro #{ret_id} aprobado — Se descontaron {rsc_costo:,.0f} RSC de tu saldo.', 'success')
 
         elif accion == 'rechazar':
+            # Rechazar: devolver COP al jugador
             cur.execute('UPDATE retiros SET estado=%s,fecha_resolucion=%s,admin_id=%s WHERE id=%s',
                         ('rechazado', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), session['usuario']['id'], ret_id))
             cur.execute('UPDATE usuarios SET saldo=saldo+%s WHERE id=%s', (monto_ret, ret['usuario_id']))
@@ -1198,20 +1571,6 @@ def admin_resolver_retiro(ret_id, accion):
             flash(f'Retiro #{ret_id} rechazado — Saldo devuelto al jugador.', 'success')
     cur.close(); conn.close()
     return redirect(url_for('admin_retiros'))
-
-@app.route('/admin/usuario/<int:uid>/reset-password', methods=['POST'])
-@login_required
-@admin_required
-def admin_reset_password(uid):
-    nueva = request.form.get('nueva_password','').strip()
-    if len(nueva) < 6:
-        flash('Mínimo 6 caracteres','error')
-        return redirect(url_for('admin_usuario_perfil', uid=uid))
-    conn = get_db(); cur = conn.cursor()
-    cur.execute('UPDATE usuarios SET password=%s WHERE id=%s', (generate_password_hash(nueva), uid))
-    conn.commit(); cur.close(); conn.close()
-    flash(f'Contraseña del usuario reseteada exitosamente.','success')
-    return redirect(url_for('admin_usuario_perfil', uid=uid))
 
 @app.route('/admin/usuarios')
 @login_required
@@ -1262,6 +1621,7 @@ def admin_usuario_perfil(uid):
     depositos = cur.fetchall()
     cur.execute("""SELECT * FROM retiros WHERE usuario_id=%s ORDER BY fecha DESC LIMIT 20""", (uid,))
     retiros = cur.fetchall()
+    # Stats
     cur.execute("""SELECT COUNT(*) as total, COALESCE(SUM(monto_apostado),0) as apostado,
                    COALESCE(SUM(monto_ganado),0) as ganado FROM apuestas WHERE usuario_id=%s""", (uid,))
     stats = cur.fetchone()
@@ -1296,12 +1656,14 @@ def admin_toggle_juego(jid):
 @admin_required
 def admin_reportes():
     conn = get_db(); cur = conn.cursor()
+    # Stats por juego
     cur.execute('''SELECT j.nombre,j.icono,COUNT(*) as total_apuestas,
                COALESCE(SUM(a.monto_apostado),0) as total_apostado,
                COALESCE(SUM(a.monto_ganado),0) as total_ganado,
                COALESCE(SUM(a.monto_apostado),0) - COALESCE(SUM(a.monto_ganado),0) as ganancia_casino
         FROM apuestas a JOIN juegos j ON a.juego_id=j.id GROUP BY j.id ORDER BY total_apostado DESC''')
     apj = cur.fetchall()
+    # Convertir Decimal a float para evitar errores en template
     apj_list = []
     for row in apj:
         apj_list.append({
@@ -1327,6 +1689,7 @@ def admin_reportes():
             'total_apuestas': int(row['total_apuestas'] or 0),
             'total_apostado': float(row['total_apostado'] or 0),
         })
+    # Apuestas por dia (ultimos 7 dias)
     cur.execute('''SELECT DATE(fecha) as dia, COUNT(*) as total, COALESCE(SUM(monto_apostado),0) as apostado,
                COALESCE(SUM(monto_ganado),0) as ganado
         FROM apuestas WHERE fecha >= DATE_SUB(NOW(), INTERVAL 7 DAY)
@@ -1336,12 +1699,14 @@ def admin_reportes():
     dias_apostado = [float(r['apostado'] or 0) for r in dias_raw]
     dias_ganado = [float(r['ganado'] or 0) for r in dias_raw]
     dias_apuestas_cnt = [int(r['total']) for r in dias_raw]
+    # Registros por dia (ultimos 7 dias)
     cur.execute('''SELECT DATE(fecha_registro) as dia, COUNT(*) as total
         FROM usuarios WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND rol='jugador'
         GROUP BY DATE(fecha_registro) ORDER BY dia ASC''')
     reg_raw = cur.fetchall()
     reg_labels = [str(r['dia']) for r in reg_raw]
     reg_totales = [int(r['total']) for r in reg_raw]
+    # Totales globales
     cur.execute("SELECT COALESCE(SUM(monto),0) as s FROM depositos WHERE estado='aprobado'")
     total_deps = float(cur.fetchone()['s'] or 0)
     cur.execute("SELECT COALESCE(SUM(monto),0) as s FROM retiros WHERE estado='aprobado'")
