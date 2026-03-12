@@ -449,27 +449,31 @@ def _max_date():
 @app.route('/forgot-password', methods=['GET','POST'])
 def forgot_password():
     if request.method == 'POST':
-        email = request.form.get('email','').strip()
+        email    = request.form.get('email','').strip()
+        fecha    = request.form.get('fecha_nacimiento','').strip()
+        nueva    = request.form.get('nueva_password','').strip()
+        confirma = request.form.get('confirmar_password','').strip()
+        if not email or not fecha or not nueva or not confirma:
+            flash('Completa todos los campos.','error')
+            return render_template('forgot_password.html')
+        if len(nueva) < 6:
+            flash('La contraseña debe tener al menos 6 caracteres.','error')
+            return render_template('forgot_password.html')
+        if nueva != confirma:
+            flash('Las contraseñas no coinciden.','error')
+            return render_template('forgot_password.html')
         conn = get_db(); cur = conn.cursor()
         cur.execute('SELECT * FROM usuarios WHERE email=%s', (email,))
         user = cur.fetchone()
-        if user:
-            # Generar código de 6 dígitos
-            codigo = str(random.randint(100000, 999999))
-            expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
-            cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, user['id']))
+        if user and str(user['fecha_nacimiento']) == fecha:
+            hashed = generate_password_hash(nueva)
+            cur.execute('UPDATE usuarios SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s', (hashed, user['id']))
             conn.commit()
-            nombre = user['nombre']
-            html = _html_email('Recuperar Contraseña', nombre, codigo, 'Restablece tu contraseña de forma segura')
-            ok = enviar_email(email, 'Codigo de recuperacion - Royal Spin', html)
-            if ok:
-                flash('Te enviamos un codigo de 6 digitos a tu correo.','success')
-                cur.close(); conn.close()
-                return redirect(url_for('verificar_codigo', email=email))
-            else:
-                flash('No se pudo enviar el email. Verifica config.py','error')
+            flash('Contraseña cambiada correctamente. Ya puedes iniciar sesión.','success')
+            cur.close(); conn.close()
+            return redirect(url_for('login'))
         else:
-            flash('Si ese email esta registrado, recibiras el codigo.','success')
+            flash('El correo o la fecha de nacimiento no coinciden.','error')
         cur.close(); conn.close()
     return render_template('forgot_password.html')
 
