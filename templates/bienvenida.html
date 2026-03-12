@@ -387,6 +387,13 @@ body { font-family:var(--f); background:var(--negro); color:var(--blanco); overf
 .footer-links { display:flex; gap:22px; }
 .footer-links a { font-family:var(--f); font-size:.68rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--gris); text-decoration:none; transition:color .2s; }
 .footer-links a:hover { color:var(--dorado2); }
+.footer-soporte-btn-bv {
+  font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  background:rgba(200,16,46,.15); border:1px solid rgba(200,16,46,.4);
+  color:var(--rojo3); padding:6px 16px; border-radius:20px;
+  text-decoration:none; transition:all .2s;
+}
+.footer-soporte-btn-bv:hover { background:rgba(200,16,46,.3); border-color:rgba(200,16,46,.7); }
 
 /* RESPONSIVE */
 @media(max-width:1100px){
@@ -1140,6 +1147,7 @@ body { font-family:var(--f); background:var(--negro); color:var(--blanco); overf
 <footer class="footer">
   <span class="footer-brand">&#9824; Royal Spin &#9830;</span>
   <span>+18 &bull; Juego Responsable &bull; Casino Virtual 2025</span>
+  <a href="/soporte" class="footer-soporte-btn-bv">Soporte</a>
 </footer>
 </div>
 
