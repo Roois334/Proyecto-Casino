@@ -1,9 +1,8 @@
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify, flash
 from config import Config
-import os, random, json, secrets
+import os, random, json
 import pymysql
 import pymysql.cursors
-import urllib.request
 from datetime import datetime, date, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -212,91 +211,6 @@ except Exception as e:
     print(f"[DB ERROR] No se pudo conectar a MySQL: {e}")
     print("[DB] Verifica MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD y MYSQL_DB en config.py")
 
-# ─── EMAIL (Resend API) ────────────────────────────────────────────────────────
-
-def enviar_email(destino, asunto, cuerpo_html):
-    cfg = app.config.get('MAIL_CONFIG', {})
-    nombre    = cfg.get('nombre', 'Royal Spin')
-    api_key   = cfg.get('resend_api_key', '')
-    remitente = cfg.get('remitente', '')
-    if not api_key or not remitente:
-        return False
-    try:
-        payload = json.dumps({
-            "from": f"{nombre} <{remitente}>",
-            "to": [destino],
-            "subject": asunto,
-            "html": cuerpo_html
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.resend.com/emails',
-            data=payload,
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            },
-            method='POST'
-        )
-        with urllib.request.urlopen(req) as resp:
-            return resp.status == 200
-    except Exception as e:
-        print(f'[EMAIL ERROR] {e}')
-        return False
-
-# ─── EMAIL HTML BONITO ─────────────────────────────────────────────────────────
-
-def _html_email(titulo, nombre, codigo, subtitulo="", es_admin=False):
-    """Genera HTML visual para todos los emails de codigo Royal Spin"""
-    label = "ADMIN" if es_admin else "CASINO"
-    digits = str(codigo).ljust(6,'0')[:6]
-
-    def digit_cell(d):
-        return (f'<td style="padding:0 4px;">'
-                f'<div style="width:46px;height:60px;background:linear-gradient(160deg,#1a1206,#110e04);'
-                f'border:1.5px solid rgba(201,168,76,.5);border-radius:10px;display:inline-block;'
-                f'text-align:center;line-height:60px;font-size:1.9rem;font-weight:900;'
-                f'font-family:Courier New,monospace;color:#e8c96a;'
-                f'box-shadow:0 4px 18px rgba(201,168,76,.15);">{d}</div></td>')
-
-    d0,d1,d2,d3,d4,d5 = [digit_cell(digits[i]) for i in range(6)]
-
-    return f"""<!DOCTYPE html>
-<html lang="es">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{titulo}</title></head>
-<body style="margin:0;padding:0;background:#06050a;font-family:Helvetica Neue,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#06050a;min-height:100vh;"><tr><td align="center" style="padding:40px 20px;">
-<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;">
-<tr><td style="background:linear-gradient(135deg,#0c0206,#1a0610,#0c0206);border-radius:20px 20px 0 0;border:1px solid rgba(200,16,46,.4);border-bottom:none;padding:10px 44px 28px;text-align:center;">
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;"><tr><td style="height:3px;background:linear-gradient(90deg,transparent,#c8102e 30%,#c9a84c 50%,#c8102e 70%,transparent);border-radius:2px;"></td></tr></table>
-<div style="font-size:.58rem;font-weight:800;letter-spacing:.5em;text-transform:uppercase;color:#c9a84c;margin-bottom:14px;">ROYAL SPIN {label}</div>
-<h1 style="margin:0 0 8px;font-size:1.4rem;font-weight:800;color:#f2ece0;letter-spacing:.02em;">{titulo}</h1>
-<p style="margin:0;font-size:.78rem;color:rgba(150,130,168,.7);line-height:1.5;">{subtitulo}</p>
-</td></tr>
-<tr><td style="background:linear-gradient(160deg,#110610,#0c040a);border:1px solid rgba(200,16,46,.35);border-top:none;border-bottom:none;padding:36px 44px;">
-<p style="font-size:.88rem;color:#7a7090;margin:0 0 24px;line-height:1.7;text-align:center;">
-Hola <strong style="color:#f2ece0;">{nombre}</strong>, usa este codigo para confirmar la accion.<br>
-Caduca en <strong style="color:#c8102e;font-size:.95rem;">15 minutos</strong>.
-</p>
-<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-<tr><td style="background:linear-gradient(135deg,rgba(200,16,46,.09),rgba(100,4,16,.05));border:1.5px solid rgba(200,16,46,.38);border-radius:16px;padding:28px 20px;text-align:center;">
-<div style="font-size:.58rem;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:rgba(200,16,46,.7);margin-bottom:18px;">CODIGO DE VERIFICACION</div>
-<table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>{d0}{d1}{d2}{d3}{d4}{d5}</tr></table>
-<div style="font-size:.7rem;color:#4a4060;margin-top:16px;">Expira en <span style="color:rgba(200,16,46,.9);font-weight:700;">15 minutos</span></div>
-</td></tr></table>
-<table width="100%" cellpadding="0" cellspacing="0"><tr>
-<td style="background:rgba(255,255,255,.02);border-left:3px solid rgba(200,16,46,.35);border-radius:0 8px 8px 0;padding:12px 16px;">
-<p style="margin:0;font-size:.74rem;color:#4a4060;line-height:1.6;">
-Si no solicitaste esta accion, ignora este correo. Tu cuenta permanece segura.
-</p></td></tr></table>
-</td></tr>
-<tr><td style="background:rgba(0,0,0,.7);border:1px solid rgba(200,16,46,.2);border-top:none;border-radius:0 0 20px 20px;padding:18px 44px;text-align:center;">
-<div style="font-size:.62rem;color:#2a2040;letter-spacing:.07em;">Royal Spin Casino &mdash; Solo para mayores de 18 anos</div>
-</td></tr>
-</table>
-</td></tr></table>
-</body></html>"""
-
-
 # ─── DECORADORES ───────────────────────────────────────────────────────────────
 
 from functools import wraps
@@ -438,86 +352,10 @@ def _max_date():
 
 # ─── RESET CONTRASEÑA ──────────────────────────────────────────────────────────
 
-@app.route('/forgot-password', methods=['GET','POST'])
+@app.route('/forgot-password')
 def forgot_password():
-    if request.method == 'POST':
-        email = request.form.get('email','').strip()
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM usuarios WHERE email=%s', (email,))
-        user = cur.fetchone()
-        if user:
-            codigo = str(random.randint(100000, 999999))
-            expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
-            cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, user['id']))
-            conn.commit()
-            nombre = user['nombre']
-            html = _html_email('Recuperar Contraseña', nombre, codigo, 'Restablece tu contraseña de forma segura')
-            ok = enviar_email(email, 'Codigo de recuperacion - Royal Spin', html)
-            if ok:
-                flash('Te enviamos un codigo de 6 digitos a tu correo.','success')
-                cur.close(); conn.close()
-                return redirect(url_for('verificar_codigo', email=email))
-            else:
-                flash('No se pudo enviar el email. Verifica config.py','error')
-        else:
-            flash('Si ese email esta registrado, recibiras el codigo.','success')
-        cur.close(); conn.close()
-    return render_template('forgot_password.html')
-
-@app.route('/verificar-codigo', methods=['GET','POST'])
-def verificar_codigo():
-    email = request.args.get('email','') or request.form.get('email','')
-    if request.method == 'POST':
-        codigo_ingresado = request.form.get('codigo','').strip()
-        email = request.form.get('email','')
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM usuarios WHERE email=%s AND reset_token=%s', (email, codigo_ingresado))
-        user = cur.fetchone()
-        if not user:
-            flash('Codigo incorrecto. Intentalo de nuevo.','error')
-            cur.close(); conn.close()
-            return render_template('verificar_codigo.html', email=email)
-        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
-            flash('El codigo ha expirado. Solicita uno nuevo.','error')
-            cur.close(); conn.close()
-            return redirect(url_for('forgot_password'))
-        cur.close(); conn.close()
-        return redirect(url_for('reset_password', token=codigo_ingresado, email=email))
-    return render_template('verificar_codigo.html', email=email)
-
-@app.route('/reset-password/<token>', methods=['GET','POST'])
-def reset_password(token):
-    email = request.args.get('email','') or request.form.get('email','')
-    conn = get_db(); cur = conn.cursor()
-    cur.execute('SELECT * FROM usuarios WHERE reset_token=%s', (token,))
-    user = cur.fetchone()
-    if not user:
-        flash('Enlace invalido o expirado','error')
-        cur.close(); conn.close()
-        return redirect(url_for('login'))
-    if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
-        flash('El codigo ha expirado. Solicita uno nuevo.','error')
-        cur.close(); conn.close()
-        return redirect(url_for('forgot_password'))
-    if request.method == 'POST':
-        nueva = request.form.get('password_nueva','')
-        conf  = request.form.get('confirmar','')
-        if len(nueva) < 6:
-            flash('Minimo 6 caracteres','error')
-            cur.close(); conn.close()
-            return render_template('reset_password.html', token=token, email=email)
-        if nueva != conf:
-            flash('Las contrasenas no coinciden','error')
-            cur.close(); conn.close()
-            return render_template('reset_password.html', token=token, email=email)
-        cur.execute('UPDATE usuarios SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
-                    (generate_password_hash(nueva), user['id']))
-        conn.commit()
-        cur.close(); conn.close()
-        flash('Contrasena restablecida. Ya puedes iniciar sesion.','success')
-        return redirect(url_for('login'))
-    cur.close(); conn.close()
-    return render_template('reset_password.html', token=token, email=email)
+    flash('Para recuperar tu contraseña contacta al administrador por soporte.','info')
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
@@ -1145,48 +983,10 @@ def cambiar_password():
     if nueva != conf:
         flash('Las contraseñas no coinciden','error'); cur.close(); conn.close()
         return redirect(url_for('perfil'))
-    codigo = str(random.randint(100000, 999999))
-    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
-    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
-    conn.commit()
-    session['pending_password'] = generate_password_hash(nueva)
-    session['pending_password_exp'] = expiry
-    session.modified = True
-    html = _html_email('Cambio de Contraseña', user['nombre'], codigo, 'Confirma el cambio de tu contraseña')
-    ok = enviar_email(user['email'], 'Código para cambiar contraseña - Royal Spin', html)
-    cur.close(); conn.close()
-    if ok:
-        flash('Código enviado a tu correo. Ingrésalo para confirmar el cambio.','success')
-        return redirect(url_for('verificar_cambio_password'))
-    else:
-        flash('No se pudo enviar el código. Verifica config.py','error')
-        return redirect(url_for('perfil'))
-
-@app.route('/perfil/verificar-cambio-password', methods=['GET','POST'])
-@login_required
-def verificar_cambio_password():
-    if request.method == 'POST':
-        codigo = request.form.get('codigo','').strip()
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
-        user = cur.fetchone()
-        if not user:
-            flash('Código incorrecto','error'); cur.close(); conn.close()
-            return render_template('verificar_cambio.html', tipo='password')
-        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
-            flash('El código expiró. Inténtalo de nuevo.','error'); cur.close(); conn.close()
-            session.pop('pending_password', None)
-            return redirect(url_for('perfil'))
-        nueva_hash = session.pop('pending_password', None)
-        if not nueva_hash:
-            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
-            return redirect(url_for('perfil'))
-        cur.execute('UPDATE usuarios SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
-                    (nueva_hash, session['usuario']['id']))
-        conn.commit(); cur.close(); conn.close()
-        flash('¡Contraseña actualizada exitosamente!','success')
-        return redirect(url_for('perfil'))
-    return render_template('verificar_cambio.html', tipo='password')
+    cur.execute('UPDATE usuarios SET password=%s WHERE id=%s', (generate_password_hash(nueva), session['usuario']['id']))
+    conn.commit(); cur.close(); conn.close()
+    flash('¡Contraseña actualizada exitosamente!','success')
+    return redirect(url_for('perfil'))
 
 @app.route('/perfil/solicitar-cambio-email', methods=['POST'])
 @login_required
@@ -1201,53 +1001,13 @@ def solicitar_cambio_email():
     if cur.fetchone():
         flash('Ese email ya está en uso','error'); cur.close(); conn.close()
         return redirect(url_for('perfil'))
-    cur.execute('SELECT * FROM usuarios WHERE id=%s', (session['usuario']['id'],))
-    user = cur.fetchone()
-    codigo = str(random.randint(100000, 999999))
-    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
-    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
+    cur.execute('UPDATE usuarios SET email=%s WHERE id=%s', (nuevo_email, session['usuario']['id']))
     conn.commit()
-    session['pending_email'] = nuevo_email
-    session['pending_email_exp'] = expiry
+    session['usuario']['email'] = nuevo_email
     session.modified = True
-    html = _html_email('Cambio de Correo', user['nombre'], codigo, 'Confirma el cambio de tu correo electronico')
-    ok = enviar_email(user['email'], 'Código para cambiar correo - Royal Spin', html)
     cur.close(); conn.close()
-    if ok:
-        flash(f'Código enviado a tu correo actual para confirmar el cambio a {nuevo_email}','success')
-        return redirect(url_for('verificar_cambio_email'))
-    else:
-        flash('No se pudo enviar el código. Verifica config.py','error')
-        return redirect(url_for('perfil'))
-
-@app.route('/perfil/verificar-cambio-email', methods=['GET','POST'])
-@login_required
-def verificar_cambio_email():
-    if request.method == 'POST':
-        codigo = request.form.get('codigo','').strip()
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
-        user = cur.fetchone()
-        if not user:
-            flash('Código incorrecto','error'); cur.close(); conn.close()
-            return render_template('verificar_cambio.html', tipo='email')
-        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
-            flash('El código expiró. Inténtalo de nuevo.','error'); cur.close(); conn.close()
-            session.pop('pending_email', None)
-            return redirect(url_for('perfil'))
-        nuevo_email = session.pop('pending_email', None)
-        if not nuevo_email:
-            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
-            return redirect(url_for('perfil'))
-        cur.execute('UPDATE usuarios SET email=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
-                    (nuevo_email, session['usuario']['id']))
-        conn.commit()
-        session['usuario']['email'] = nuevo_email
-        session.modified = True
-        cur.close(); conn.close()
-        flash('¡Correo actualizado exitosamente!','success')
-        return redirect(url_for('perfil'))
-    return render_template('verificar_cambio.html', tipo='email')
+    flash('¡Correo actualizado exitosamente!','success')
+    return redirect(url_for('perfil'))
 
 # ─── ADMIN: CAMBIO DE CONTRASEÑA CON CÓDIGO ────────────────────────────────────
 
@@ -1270,49 +1030,10 @@ def admin_cambiar_password():
     if nueva != conf:
         flash('Las contraseñas no coinciden','error'); cur.close(); conn.close()
         return redirect(url_for('admin_perfil'))
-    codigo = str(random.randint(100000, 999999))
-    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
-    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
-    conn.commit()
-    session['pending_admin_password'] = generate_password_hash(nueva)
-    session['pending_admin_password_exp'] = expiry
-    session.modified = True
-    html = _html_email('Cambio de Contrasena Admin', user['nombre'], codigo, 'Confirma el cambio de contrasena de administrador', es_admin=True)
-    ok = enviar_email(user['email'], 'Código Admin - Cambio de Contraseña - Royal Spin', html)
-    cur.close(); conn.close()
-    if ok:
-        flash('Código enviado a tu correo de administrador.','success')
-        return redirect(url_for('admin_verificar_cambio_password'))
-    else:
-        flash('No se pudo enviar el código. Verifica config.py','error')
-        return redirect(url_for('admin_perfil'))
-
-@app.route('/admin/perfil/verificar-cambio-password', methods=['GET','POST'])
-@login_required
-@admin_required
-def admin_verificar_cambio_password():
-    if request.method == 'POST':
-        codigo = request.form.get('codigo','').strip()
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
-        user = cur.fetchone()
-        if not user:
-            flash('Código incorrecto. Verifica el correo e intenta de nuevo.','error'); cur.close(); conn.close()
-            return render_template('verificar_cambio.html', tipo='admin_password')
-        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
-            flash('El código expiró. Solicita uno nuevo.','error'); cur.close(); conn.close()
-            session.pop('pending_admin_password', None)
-            return redirect(url_for('admin_perfil'))
-        nueva_hash = session.pop('pending_admin_password', None)
-        if not nueva_hash:
-            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
-            return redirect(url_for('admin_perfil'))
-        cur.execute('UPDATE usuarios SET password=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
-                    (nueva_hash, session['usuario']['id']))
-        conn.commit(); cur.close(); conn.close()
-        flash('Contrasena actualizada exitosamente.','success')
-        return redirect(url_for('admin_perfil'))
-    return render_template('verificar_cambio.html', tipo='admin_password')
+    cur.execute('UPDATE usuarios SET password=%s WHERE id=%s', (generate_password_hash(nueva), session['usuario']['id']))
+    conn.commit(); cur.close(); conn.close()
+    flash('Contraseña actualizada exitosamente.','success')
+    return redirect(url_for('admin_perfil'))
 
 @app.route('/admin/perfil/solicitar-cambio-email', methods=['POST'])
 @login_required
@@ -1328,54 +1049,13 @@ def admin_solicitar_cambio_email():
     if cur.fetchone():
         flash('Ese email ya está en uso','error'); cur.close(); conn.close()
         return redirect(url_for('admin_perfil'))
-    cur.execute('SELECT * FROM usuarios WHERE id=%s', (session['usuario']['id'],))
-    user = cur.fetchone()
-    codigo = str(random.randint(100000, 999999))
-    expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
-    cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
+    cur.execute('UPDATE usuarios SET email=%s WHERE id=%s', (nuevo_email, session['usuario']['id']))
     conn.commit()
-    session['pending_admin_email'] = nuevo_email
-    session['pending_admin_email_exp'] = expiry
+    session['usuario']['email'] = nuevo_email
     session.modified = True
-    html = _html_email('Cambio de Correo Admin', user['nombre'], codigo, 'Confirma el cambio de correo de administrador', es_admin=True)
-    ok = enviar_email(user['email'], 'Código Admin - Cambio de Correo - Royal Spin', html)
     cur.close(); conn.close()
-    if ok:
-        flash('Código enviado a tu correo actual.','success')
-        return redirect(url_for('admin_verificar_cambio_email'))
-    else:
-        flash('No se pudo enviar el código','error')
-        return redirect(url_for('admin_perfil'))
-
-@app.route('/admin/perfil/verificar-cambio-email', methods=['GET','POST'])
-@login_required
-@admin_required
-def admin_verificar_cambio_email():
-    if request.method == 'POST':
-        codigo = request.form.get('codigo','').strip()
-        conn = get_db(); cur = conn.cursor()
-        cur.execute('SELECT * FROM usuarios WHERE id=%s AND reset_token=%s', (session['usuario']['id'], codigo))
-        user = cur.fetchone()
-        if not user:
-            flash('Código incorrecto. Verifica el correo e intenta de nuevo.','error'); cur.close(); conn.close()
-            return render_template('verificar_cambio.html', tipo='admin_email')
-        if user['reset_expiry'] and user['reset_expiry'] < datetime.now():
-            flash('El código expiró. Solicita uno nuevo.','error'); cur.close(); conn.close()
-            session.pop('pending_admin_email', None)
-            return redirect(url_for('admin_perfil'))
-        nuevo_email = session.pop('pending_admin_email', None)
-        if not nuevo_email:
-            flash('Sesión expirada. Vuelve a intentarlo.','error'); cur.close(); conn.close()
-            return redirect(url_for('admin_perfil'))
-        cur.execute('UPDATE usuarios SET email=%s, reset_token=NULL, reset_expiry=NULL WHERE id=%s',
-                    (nuevo_email, session['usuario']['id']))
-        conn.commit()
-        session['usuario']['email'] = nuevo_email
-        session.modified = True
-        cur.close(); conn.close()
-        flash('Correo actualizado exitosamente.','success')
-        return redirect(url_for('admin_perfil'))
-    return render_template('verificar_cambio.html', tipo='admin_email')
+    flash('Correo actualizado exitosamente.','success')
+    return redirect(url_for('admin_perfil'))
 
 @app.route('/perfil/actualizar', methods=['POST'])
 @login_required
@@ -1531,6 +1211,20 @@ def admin_resolver_retiro(ret_id, accion):
             flash(f'Retiro #{ret_id} rechazado — Saldo devuelto al jugador.', 'success')
     cur.close(); conn.close()
     return redirect(url_for('admin_retiros'))
+
+@app.route('/admin/usuario/<int:uid>/reset-password', methods=['POST'])
+@login_required
+@admin_required
+def admin_reset_password(uid):
+    nueva = request.form.get('nueva_password','').strip()
+    if len(nueva) < 6:
+        flash('Mínimo 6 caracteres','error')
+        return redirect(url_for('admin_usuario_perfil', uid=uid))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('UPDATE usuarios SET password=%s WHERE id=%s', (generate_password_hash(nueva), uid))
+    conn.commit(); cur.close(); conn.close()
+    flash(f'Contraseña del usuario reseteada exitosamente.','success')
+    return redirect(url_for('admin_usuario_perfil', uid=uid))
 
 @app.route('/admin/usuarios')
 @login_required
