@@ -1,11 +1,10 @@
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify, flash
 from config import Config
-import os, random, json, smtplib, secrets
+import os, random, json, secrets
 import pymysql
 import pymysql.cursors
+import urllib.request
 from datetime import datetime, date, timedelta
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -16,9 +15,7 @@ app.config.from_object(Config)
 def formato_cop(value):
     try:
         v = float(value or 0)
-        # Format with thousands separator as dot (Colombian standard)
         if v == int(v):
-            # Use comma as thousands sep then replace with dot
             formatted = "{:,.0f}".format(int(v)).replace(",", ".")
             return formatted
         else:
@@ -30,7 +27,6 @@ def formato_cop(value):
         return str(value)
 
 # ─── FILTRO PARA FECHAS MYSQL ────────────────────────────────────────────────
-# MySQL devuelve objetos datetime, no strings. Este filtro los convierte de forma segura.
 @app.template_filter("fecha")
 def formato_fecha(value, fmt="%Y-%m-%d"):
     if value is None:
@@ -82,7 +78,6 @@ def init_db():
             razon_bloqueo    TEXT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """)
-    # Migracion: agregar saldo_rsc si no existe (para DBs ya creadas)
     try:
         cur.execute("ALTER TABLE usuarios ADD COLUMN saldo_rsc DECIMAL(14,4) DEFAULT 0.0000")
         conn.commit()
@@ -180,7 +175,6 @@ def init_db():
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """)
 
-    # Juegos iniciales
     cur.execute("""
         INSERT INTO juegos (id,nombre,descripcion,icono,tipo,rtp,apuesta_minima,apuesta_maxima,multiplicador_maximo)
         VALUES
@@ -197,7 +191,6 @@ def init_db():
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=3")
     cur.execute("UPDATE juegos SET apuesta_minima=100.00,apuesta_maxima=99999999.00 WHERE id=4")
 
-    # Promociones iniciales
     cur.execute("""
         INSERT IGNORE INTO promociones (nombre,descripcion,tipo,porcentaje,monto_maximo)
         VALUES
@@ -206,16 +199,7 @@ def init_db():
         ('Programa VIP','1 punto por cada COP$10 apostado.','vip',5,1000.00)
     """)
 
-    # Admin por defecto
-    cur.execute("SELECT id FROM usuarios WHERE email='admin@royalspin.com'")
-    if not cur.fetchone():
-        cur.execute(
-            "INSERT INTO usuarios (nombre,email,password,fecha_nacimiento,rol,saldo,saldo_rsc) VALUES (%s,%s,%s,%s,%s,%s,%s)",
-            ('Administrador','admin@royalspin.com', generate_password_hash('admin123'),'1990-01-01','admin',0.00, 1000000.0)
-        )
-    else:
-        # Asegurar que admin tenga saldo_rsc si ya existe
-        cur.execute("UPDATE usuarios SET saldo_rsc=1000000.0 WHERE email='admin@royalspin.com' AND saldo_rsc=0")
+
 
     conn.commit()
     cur.close()
@@ -228,25 +212,33 @@ except Exception as e:
     print(f"[DB ERROR] No se pudo conectar a MySQL: {e}")
     print("[DB] Verifica MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD y MYSQL_DB en config.py")
 
-# ─── EMAIL ─────────────────────────────────────────────────────────────────────
+# ─── EMAIL (Resend API) ────────────────────────────────────────────────────────
 
 def enviar_email(destino, asunto, cuerpo_html):
     cfg = app.config.get('MAIL_CONFIG', {})
-    remitente = cfg.get('remitente','')
-    password  = cfg.get('password','')
-    nombre    = cfg.get('nombre','Royal Spin')
-    if not remitente or not password:
+    nombre    = cfg.get('nombre', 'Royal Spin')
+    api_key   = cfg.get('resend_api_key', '')
+    remitente = cfg.get('remitente', '')
+    if not api_key or not remitente:
         return False
     try:
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = asunto
-        msg['From']    = f'{nombre} <{remitente}>'
-        msg['To']      = destino
-        msg.attach(MIMEText(cuerpo_html, 'html', 'utf-8'))
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(remitente, password)
-            server.sendmail(remitente, destino, msg.as_string())
-        return True
+        payload = json.dumps({
+            "from": f"{nombre} <{remitente}>",
+            "to": [destino],
+            "subject": asunto,
+            "html": cuerpo_html
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            'https://api.resend.com/emails',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            method='POST'
+        )
+        with urllib.request.urlopen(req) as resp:
+            return resp.status == 200
     except Exception as e:
         print(f'[EMAIL ERROR] {e}')
         return False
@@ -454,7 +446,6 @@ def forgot_password():
         cur.execute('SELECT * FROM usuarios WHERE email=%s', (email,))
         user = cur.fetchone()
         if user:
-            # Generar código de 6 dígitos
             codigo = str(random.randint(100000, 999999))
             expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
             cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, user['id']))
@@ -490,7 +481,6 @@ def verificar_codigo():
             flash('El codigo ha expirado. Solicita uno nuevo.','error')
             cur.close(); conn.close()
             return redirect(url_for('forgot_password'))
-        # Codigo valido — redirigir a reset con token
         cur.close(); conn.close()
         return redirect(url_for('reset_password', token=codigo_ingresado, email=email))
     return render_template('verificar_codigo.html', email=email)
@@ -578,7 +568,6 @@ def juego(juego_id):
         return redirect(url_for('admin_panel'))
     sync_saldo_session()
 
-    # Limpiar sesión de BJ abandonada sin reembolso (el jugador perdió al salirse)
     if session.get('blackjack_state'):
         session.pop('blackjack_state', None)
         session.modified = True
@@ -620,9 +609,8 @@ def api_jugar():
 
     saldo_actual = float(user['saldo'])
 
-    # Sin límite máximo — el jugador puede apostar hasta su saldo completo
     apuesta_min_real = 100.0
-    apuesta_max_real = saldo_actual  # máximo = saldo disponible
+    apuesta_max_real = saldo_actual
 
     # ══ BLACKJACK INTERACTIVO ══
     if game['tipo'] == 'cartas':
@@ -690,21 +678,18 @@ def api_jugar():
                 return jsonify({'error':'No hay partida activa'}), 400
             nueva_carta = random.choice(cartas_baraja)
             en_split = bj.get('en_split', False)
-            
+
             if en_split and 'split_mano' in bj:
-                # Drawing to split hand 2
                 bj['split_mano'].append(nueva_carta)
                 suma_j = calc_suma(bj['split_mano'])
                 session['blackjack_state'] = bj
                 session.modified = True
                 if suma_j > 21:
-                    # Split mano 2 bust - resolve both hands
                     apuesta_bj = bj.get('split_apuesta', bj['apuesta'])
                     mano_c = bj['mano_c']
                     while calc_suma(mano_c) < 17:
                         mano_c.append(random.choice(cartas_baraja))
                     suma_c = calc_suma(mano_c)
-                    # Mano 1 result (con detección de blackjack natural)
                     mano_j1_ref = bj['mano_j']
                     suma_m1 = calc_suma(mano_j1_ref)
                     es_bj_m1 = len(mano_j1_ref) == 2 and suma_m1 == 21
@@ -716,7 +701,7 @@ def api_jugar():
                     elif suma_m1 > suma_c: g1 = apuesta_bj * 2
                     elif suma_m1 == suma_c: g1 = apuesta_bj
                     else: g1 = 0
-                    ganancia = g1  # mano2 bust = 0
+                    ganancia = g1
                     msg = f'Mano 2 bust! Mano 1: {"Gana" if g1>0 else "Pierde"}'
                     nuevo_saldo2 = float(session['usuario']['saldo']) + ganancia
                     cur.execute('UPDATE usuarios SET saldo=%s, puntos_vip=puntos_vip+%s WHERE id=%s',
@@ -731,15 +716,12 @@ def api_jugar():
                 cur.close(); conn.close()
                 return jsonify({'estado':'split_jugando','mano_jugador':bj['split_mano'],'suma_j':suma_j,'suma_j2':suma_j,'split_mano':bj['split_mano'],'terminado':False,'nuevo_saldo':session['usuario']['saldo'],'en_split':True})
             else:
-                # Drawing to main hand (or split hand 1)
                 if 'split_mano' in bj and not en_split:
-                    # Split hand 1
                     bj['mano_j'].append(nueva_carta)
                     suma_j = calc_suma(bj['mano_j'])
                     session['blackjack_state'] = bj
                     session.modified = True
                     if suma_j > 21:
-                        # Mano 1 bust - auto move to mano 2
                         session['blackjack_state'] = bj
                         session.modified = True
                         cur.close(); conn.close()
@@ -747,7 +729,6 @@ def api_jugar():
                     cur.close(); conn.close()
                     return jsonify({'estado':'split_jugando','mano_jugador':bj['mano_j'],'suma_j':suma_j,'terminado':False,'nuevo_saldo':session['usuario']['saldo'],'en_split':False})
                 else:
-                    # Normal single hand
                     bj['mano_j'].append(nueva_carta)
                     suma_j = calc_suma(bj['mano_j'])
                     session['blackjack_state'] = bj
@@ -786,12 +767,11 @@ def api_jugar():
             if not bj:
                 cur.close(); conn.close()
                 return jsonify({'error':'No hay partida activa'}), 400
-            
+
             en_split = bj.get('en_split', False)
             tiene_split = 'split_mano' in bj
-            
+
             if tiene_split and not en_split:
-                # Mano 1 del split: doblar o plantarse
                 if accion == 'doblar':
                     if saldo_actual < bj['apuesta']:
                         cur.close(); conn.close()
@@ -807,22 +787,19 @@ def api_jugar():
                     session['blackjack_state'] = bj
                     session.modified = True
                     cur.close(); conn.close()
-                    # Si se pasó de 21 con el doblar, igual pasamos a mano 2
                     return jsonify({'estado':'split_mano1_listo','mano_jugador':bj['mano_j'],'split_mano':bj['split_mano'],'suma_j':suma_m1,'suma_j2':calc_suma(bj['split_mano']),'nuevo_saldo':ns_dbl,'terminado':False,'doblado':True})
-                # Plantarse en mano 1 - mover a mano 2
                 session['blackjack_state'] = bj
                 session.modified = True
                 cur.close(); conn.close()
                 return jsonify({'estado':'split_mano1_listo','mano_jugador':bj['mano_j'],'split_mano':bj['split_mano'],'suma_j':calc_suma(bj['mano_j']),'suma_j2':calc_suma(bj['split_mano']),'nuevo_saldo':session['usuario']['saldo'],'terminado':False})
-            
+
             if tiene_split and en_split:
-                # Planting/finishing split hand 2 - resolve everything
                 mano_j1 = bj['mano_j']
                 mano_j2 = bj.get('split_mano', [])
                 mano_c = bj['mano_c']
                 apuesta_base = bj.get('split_apuesta', bj['apuesta'])
-                apuesta_bj = bj.get('split_apuesta_m1', apuesta_base)  # si mano1 dobló, usa apuesta doble
-                
+                apuesta_bj = bj.get('split_apuesta_m1', apuesta_base)
+
                 if accion == 'doblar':
                     if saldo_actual < apuesta_bj:
                         cur.close(); conn.close()
@@ -835,16 +812,14 @@ def api_jugar():
                     conn.commit(); session['usuario']['saldo'] = ns_dbl
                 else:
                     apuesta_bj_2 = apuesta_bj
-                
-                # Dealer draws
+
                 while calc_suma(mano_c) < 17:
                     mano_c.append(random.choice(cartas_baraja))
                 suma_c = calc_suma(mano_c)
                 suma_j1 = calc_suma(mano_j1)
                 suma_j2 = calc_suma(mano_j2)
-                
+
                 def es_blackjack_natural(mano):
-                    """Blackjack natural: exactamente 2 cartas sumando 21"""
                     return len(mano) == 2 and calc_suma(mano) == 21
 
                 def calc_result(suma_j, ap, suma_c, mano=None):
@@ -857,13 +832,13 @@ def api_jugar():
                     elif suma_j > suma_c: return ap*2, f'Ganaste ({suma_j})'
                     elif suma_j == suma_c: return ap, f'Empate ({suma_j})'
                     else: return 0, f'Perdiste ({suma_j})'
-                
+
                 g1, msg1 = calc_result(suma_j1, apuesta_bj, suma_c, mano_j1)
                 g2, msg2 = calc_result(suma_j2, apuesta_bj_2, suma_c, mano_j2)
                 ganancia_total = g1 + g2
                 apuesta_total = apuesta_bj + apuesta_bj_2
                 msg_final = f'Mano 1: {msg1}  —  Mano 2: {msg2}'
-                
+
                 nuevo_saldo2 = float(session['usuario']['saldo']) + ganancia_total
                 cur.execute('UPDATE usuarios SET saldo=%s, puntos_vip=puntos_vip+%s WHERE id=%s',
                             (nuevo_saldo2, int(apuesta_total/10), session['usuario']['id']))
@@ -875,8 +850,7 @@ def api_jugar():
                 session.modified = True
                 cur.close(); conn.close()
                 return jsonify({'estado':'terminado','mano_jugador':mano_j1,'split_mano':mano_j2,'mano_crupier':mano_c,'suma_j':suma_j1,'suma_j2':suma_j2,'suma_c':suma_c,'resultado':msg_final,'nuevo_saldo':nuevo_saldo2,'gano':ganancia_total>apuesta_total,'ganancia':ganancia_total,'terminado':True})
-            
-            # Normal (non-split) mode
+
             mano_j = bj['mano_j']; mano_c = bj['mano_c']; apuesta_bj = bj['apuesta']
             if accion == 'doblar':
                 if saldo_actual < apuesta_bj:
@@ -916,7 +890,6 @@ def api_jugar():
             return jsonify({'estado':'terminado','mano_jugador':mano_j,'mano_crupier':mano_c,'suma_j':suma_j,'suma_c':suma_c,'resultado':msg,'nuevo_saldo':nuevo_saldo2,'gano':ganancia>0,'ganancia':ganancia,'terminado':True})
 
     # ══ OTROS JUEGOS ══
-    # For roulette with multi-bet, validation is done inside the roulette block
     if game['tipo'] != 'rueda':
         if apuesta < apuesta_min_real:
             cur.close(); conn.close()
@@ -947,26 +920,23 @@ def api_jugar():
 
     elif game['tipo'] == 'rueda':
         bets_dict = extra.get('bets', {})
-        # Legacy single bet support
         if not bets_dict:
             tipo_ap = extra.get('tipo','rojo')
             bets_dict = {tipo_ap: apuesta}
-        
+
         numero  = random.randint(0,36)
         rojos   = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
         color   = 'verde' if numero==0 else ('rojo' if numero in rojos else 'negro')
         columna = 0 if numero==0 else ((numero-1)%3+1)
         docena  = 0 if numero==0 else ((numero-1)//12+1)
-        
-        # Calculate total apostado and validate
+
         total_apostado = sum(float(v) for v in bets_dict.values())
         detalles = {'numero':numero,'color':color,'total_apostado':total_apostado}
-        
+
         if saldo_actual < total_apostado:
             cur.close(); conn.close()
             return jsonify({'error':'Saldo insuficiente'}), 400
-        
-        # Calculate winnings for each bet
+
         ganancia = 0
         winning_bets = []
         for tipo_ap, monto_ap in bets_dict.items():
@@ -997,8 +967,7 @@ def api_jugar():
             elif tipo_ap == 'col3' and columna == 3:
                 g = monto_ap * 3; winning_bets.append('3ª Col x3')
             ganancia += g
-        
-        # Override apuesta with total for saldo deduction
+
         apuesta = total_apostado
         if winning_bets:
             resultado = f'Salió {numero} ({color}) - {", ".join(winning_bets)}'
@@ -1053,8 +1022,8 @@ def api_saldo():
 @app.route('/depositar', methods=['GET','POST'])
 @login_required
 def depositar():
-    RSC_RATE  = 1000   # 1 RSC = COP$1.000
-    RSC_BONUS = 0.10   # bono 10% al depositar con RoyalCoin
+    RSC_RATE  = 1000
+    RSC_BONUS = 0.10
     if request.method == 'POST':
         try: monto_rsc = float(request.form.get('monto',0))
         except: monto_rsc = 0
@@ -1085,12 +1054,11 @@ def retirar():
     user = cur.fetchone()
     if request.method == 'POST':
         RSC_RATE = 1000.0
-        RSC_MIN  = 10       # mínimo 10 RSC
+        RSC_MIN  = 10
         try: monto_cop = float(request.form.get('monto', 0))
         except: monto_cop = 0
         monto_rsc = monto_cop / RSC_RATE
 
-        # Validaciones
         if monto_cop <= 0 or monto_rsc < RSC_MIN:
             flash(f'El mínimo de retiro es {RSC_MIN} RSC (COP${RSC_MIN * RSC_RATE:,.0f})','error')
             cur.close(); conn.close()
@@ -1105,7 +1073,6 @@ def retirar():
         cuenta = request.form.get('cuenta_destino', '').strip()
         nota   = f'Retiro en RoyalCoin: {monto_rsc:.0f} RSC = COP${monto_cop:,.0f}. Nota: {cuenta}'
 
-        # Descontar saldo COP del jugador y registrar retiro
         cur.execute('UPDATE usuarios SET saldo=saldo-%s WHERE id=%s', (monto_cop, session['usuario']['id']))
         cur.execute(
             'INSERT INTO retiros (usuario_id,monto,metodo,cuenta_destino,estado,nota) VALUES (%s,%s,%s,%s,%s,%s)',
@@ -1132,7 +1099,6 @@ def historial():
         JOIN juegos j ON a.juego_id=j.id WHERE a.usuario_id=%s ORDER BY a.fecha DESC LIMIT 200''',
         (session['usuario']['id'],))
     aps = cur.fetchall()
-    # Stats pérdidas y ganancias
     cur.execute('''SELECT
         COALESCE(SUM(monto_apostado),0) as total_apostado,
         COALESCE(SUM(monto_ganado),0) as total_ganado,
@@ -1179,12 +1145,10 @@ def cambiar_password():
     if nueva != conf:
         flash('Las contraseñas no coinciden','error'); cur.close(); conn.close()
         return redirect(url_for('perfil'))
-    # Enviar código de verificación al correo
     codigo = str(random.randint(100000, 999999))
     expiry = (datetime.now() + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S')
     cur.execute('UPDATE usuarios SET reset_token=%s, reset_expiry=%s WHERE id=%s', (codigo, expiry, session['usuario']['id']))
     conn.commit()
-    # Guardar nueva contraseña temporalmente en sesión (hash)
     session['pending_password'] = generate_password_hash(nueva)
     session['pending_password_exp'] = expiry
     session.modified = True
@@ -1479,7 +1443,6 @@ def admin_panel():
 @login_required
 @admin_required
 def admin_recargar_rsc():
-    """El admin recarga su propio saldo RSC (solo el dueño)."""
     try: cantidad = float(request.form.get('cantidad', 0))
     except: cantidad = 0
     if cantidad <= 0:
@@ -1515,7 +1478,6 @@ def admin_resolver_deposito(dep_id, accion):
                     (estado, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), session['usuario']['id'], dep_id))
         if accion=='aprobar':
             monto_dep = float(dep['monto'])
-            # Solo acreditar COP al jugador — el depósito NO descuenta RSC del admin
             cur.execute('UPDATE usuarios SET saldo=saldo+%s WHERE id=%s', (monto_dep, dep['usuario_id']))
         conn.commit()
         flash(f'Depósito #{dep_id} {estado}','success')
@@ -1546,7 +1508,6 @@ def admin_resolver_retiro(ret_id, accion):
         rsc_costo = monto_ret / RSC_RATE
 
         if accion == 'aprobar':
-            # Verificar que el admin tiene suficientes RSC ANTES de aprobar
             cur.execute("SELECT saldo_rsc FROM usuarios WHERE rol='admin' LIMIT 1")
             admin_row = cur.fetchone()
             admin_rsc = float(admin_row['saldo_rsc']) if admin_row else 0.0
@@ -1556,7 +1517,6 @@ def admin_resolver_retiro(ret_id, accion):
                 cur.close(); conn.close()
                 return redirect(url_for('admin_retiros'))
 
-            # Aprobar: descontar RSC del admin y actualizar estado
             cur.execute('UPDATE retiros SET estado=%s,fecha_resolucion=%s,admin_id=%s WHERE id=%s',
                         ('aprobado', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), session['usuario']['id'], ret_id))
             cur.execute("UPDATE usuarios SET saldo_rsc=saldo_rsc-%s WHERE rol='admin'", (rsc_costo,))
@@ -1564,7 +1524,6 @@ def admin_resolver_retiro(ret_id, accion):
             flash(f'✅ Retiro #{ret_id} aprobado — Se descontaron {rsc_costo:,.0f} RSC de tu saldo.', 'success')
 
         elif accion == 'rechazar':
-            # Rechazar: devolver COP al jugador
             cur.execute('UPDATE retiros SET estado=%s,fecha_resolucion=%s,admin_id=%s WHERE id=%s',
                         ('rechazado', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), session['usuario']['id'], ret_id))
             cur.execute('UPDATE usuarios SET saldo=saldo+%s WHERE id=%s', (monto_ret, ret['usuario_id']))
@@ -1622,7 +1581,6 @@ def admin_usuario_perfil(uid):
     depositos = cur.fetchall()
     cur.execute("""SELECT * FROM retiros WHERE usuario_id=%s ORDER BY fecha DESC LIMIT 20""", (uid,))
     retiros = cur.fetchall()
-    # Stats
     cur.execute("""SELECT COUNT(*) as total, COALESCE(SUM(monto_apostado),0) as apostado,
                    COALESCE(SUM(monto_ganado),0) as ganado FROM apuestas WHERE usuario_id=%s""", (uid,))
     stats = cur.fetchone()
@@ -1657,14 +1615,12 @@ def admin_toggle_juego(jid):
 @admin_required
 def admin_reportes():
     conn = get_db(); cur = conn.cursor()
-    # Stats por juego
     cur.execute('''SELECT j.nombre,j.icono,COUNT(*) as total_apuestas,
                COALESCE(SUM(a.monto_apostado),0) as total_apostado,
                COALESCE(SUM(a.monto_ganado),0) as total_ganado,
                COALESCE(SUM(a.monto_apostado),0) - COALESCE(SUM(a.monto_ganado),0) as ganancia_casino
         FROM apuestas a JOIN juegos j ON a.juego_id=j.id GROUP BY j.id ORDER BY total_apostado DESC''')
     apj = cur.fetchall()
-    # Convertir Decimal a float para evitar errores en template
     apj_list = []
     for row in apj:
         apj_list.append({
@@ -1690,7 +1646,6 @@ def admin_reportes():
             'total_apuestas': int(row['total_apuestas'] or 0),
             'total_apostado': float(row['total_apostado'] or 0),
         })
-    # Apuestas por dia (ultimos 7 dias)
     cur.execute('''SELECT DATE(fecha) as dia, COUNT(*) as total, COALESCE(SUM(monto_apostado),0) as apostado,
                COALESCE(SUM(monto_ganado),0) as ganado
         FROM apuestas WHERE fecha >= DATE_SUB(NOW(), INTERVAL 7 DAY)
@@ -1700,14 +1655,12 @@ def admin_reportes():
     dias_apostado = [float(r['apostado'] or 0) for r in dias_raw]
     dias_ganado = [float(r['ganado'] or 0) for r in dias_raw]
     dias_apuestas_cnt = [int(r['total']) for r in dias_raw]
-    # Registros por dia (ultimos 7 dias)
     cur.execute('''SELECT DATE(fecha_registro) as dia, COUNT(*) as total
         FROM usuarios WHERE fecha_registro >= DATE_SUB(NOW(), INTERVAL 7 DAY) AND rol='jugador'
         GROUP BY DATE(fecha_registro) ORDER BY dia ASC''')
     reg_raw = cur.fetchall()
     reg_labels = [str(r['dia']) for r in reg_raw]
     reg_totales = [int(r['total']) for r in reg_raw]
-    # Totales globales
     cur.execute("SELECT COALESCE(SUM(monto),0) as s FROM depositos WHERE estado='aprobado'")
     total_deps = float(cur.fetchone()['s'] or 0)
     cur.execute("SELECT COALESCE(SUM(monto),0) as s FROM retiros WHERE estado='aprobado'")

@@ -9,7 +9,7 @@ class Config:
     MYSQL_DB       = 'casino_cropnineam'
     MYSQL_PORT     = 3306
     MAIL_CONFIG = {
-        'remitente': 'baironlozano334@gmail.com',
-        'password':  'kujtklomjsawbxox',
-        'nombre':    'Royal Spin Casino'
-    }
+    'remitente': 'onboarding@resend.dev',
+    'resend_api_key': 're_YwbnkjYS_AT9mSCWVgjYZrFFEp3BxM1vJ',
+    'nombre': 'Royal Spin Casino'
+}
