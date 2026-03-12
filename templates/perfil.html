@@ -123,11 +123,10 @@
       </div>
       <div id="emailChangeForm" style="display:none;background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.25);border-radius:10px;padding:14px;margin:2px 0;">
         <div style="font-size:.75rem;font-weight:700;color:var(--rojo3);margin-bottom:8px;">Cambiar Correo Electronico</div>
-        <p style="font-size:.72rem;color:var(--gris2);margin-bottom:10px;">Se enviara un codigo de verificacion a tu correo actual para confirmar el cambio.</p>
         <form method="POST" action="/perfil/solicitar-cambio-email">
           <input type="email" name="nuevo_email" placeholder="Nuevo correo electronico"
             style="width:100%;padding:9px 12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.3);border-radius:8px;color:var(--blanco);font-size:.85rem;outline:none;margin-bottom:8px;">
-          <button type="submit" class="btn btn-r btn-sm" style="width:100%;">Enviar Codigo de Verificacion</button>
+          <button type="submit" class="btn btn-r btn-sm" style="width:100%;">Cambiar Correo</button>
         </form>
         <button type="button" onclick="toggleEmailForm()" style="background:none;border:none;color:var(--gris);font-size:.7rem;margin-top:6px;cursor:pointer;width:100%;text-align:center;">Cancelar</button>
       </div>
@@ -194,9 +193,6 @@
           <div class="field-msg" id="mPassConf"></div>
         </div>
         <button type="button" onclick="pEnviarPass()" class="btn btn-r btn-block">Cambiar Contrasena</button>
-        <div style="background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.15);border-radius:8px;padding:8px;margin-top:8px;font-size:.7rem;color:var(--gris2);">
-          Por seguridad, se enviara un codigo de verificacion a tu correo para confirmar el cambio.
-        </div>
       </form>
     </div>
 

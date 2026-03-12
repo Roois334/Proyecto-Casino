@@ -69,11 +69,10 @@
       </div>
       <div id="adminEmailForm" style="display:none;background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.25);border-radius:10px;padding:14px;margin:4px 0;">
         <div style="font-size:.75rem;font-weight:700;color:var(--rojo3);margin-bottom:8px;">Cambiar Correo Admin</div>
-        <p style="font-size:.72rem;color:var(--gris2);margin-bottom:10px;">Código de verificación al correo actual.</p>
         <form method="POST" action="/admin/perfil/solicitar-cambio-email">
           <input type="email" name="nuevo_email" placeholder="Nuevo correo"
             style="width:100%;padding:9px 12px;background:rgba(255,255,255,.04);border:1.5px solid rgba(200,16,46,.3);border-radius:8px;color:var(--blanco);font-size:.85rem;outline:none;margin-bottom:8px;">
-          <button type="submit" class="btn btn-r btn-sm" style="width:100%;">Enviar Código</button>
+          <button type="submit" class="btn btn-r btn-sm" style="width:100%;">Cambiar Correo</button>
         </form>
         <button type="button" onclick="toggleAdminEmailForm()" style="background:none;border:none;color:var(--gris);font-size:.7rem;margin-top:6px;cursor:pointer;width:100%;text-align:center;">Cancelar</button>
       </div>
@@ -127,9 +126,6 @@
           <div class="field-msg" id="aMConf"></div>
         </div>
         <button type="button" onclick="aEnviarPass()" class="btn btn-r btn-block">Cambiar Contraseña</button>
-        <div style="background:rgba(200,16,46,.06);border:1px solid rgba(200,16,46,.15);border-radius:8px;padding:8px;margin-top:8px;font-size:.7rem;color:var(--gris2);">
-           Código de verificación al correo para confirmar.
-        </div>
       </form>
     </div>
 

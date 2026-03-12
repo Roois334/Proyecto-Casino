@@ -5,175 +5,190 @@
 <div class="page-header fade-up">
   <div>
     <h1 class="page-title">Centro de <span class="gold">Soporte</span></h1>
-    <p class="page-subtitle">Escríbenos y te respondemos lo antes posible</p>
+    <p class="page-subtitle">Estamos aquí para ayudarte · Respondemos en menos de 24 horas</p>
   </div>
 </div>
 
-<!-- INFO PRINCIPAL -->
-<div class="soporte-main fade-up">
-  <div class="soporte-info-card">
-    <div class="soporte-icon">📧</div>
-    <div class="soporte-info-body">
-      <div class="soporte-info-titulo">Correo de Soporte</div>
-      <div class="soporte-info-email">soporteroyal@yopmail.com</div>
-      <div class="soporte-info-sub">Respondemos en menos de 24 horas · Lunes a Domingo</div>
+<!-- CONTACTO RÁPIDO -->
+<div class="sp-contact-bar fade-up">
+  <div class="sp-contact-item">
+    <span class="sp-contact-icon">📧</span>
+    <div>
+      <div class="sp-contact-label">Correo oficial</div>
+      <a href="mailto:soporteroyal@yopmail.com" class="sp-contact-value">soporteroyal@yopmail.com</a>
     </div>
-    <a href="mailto:soporteroyal@yopmail.com" class="btn-soporte-email">
-      ✉️ Enviar Correo
-    </a>
+  </div>
+  <div class="sp-contact-divider"></div>
+  <div class="sp-contact-item">
+    <span class="sp-contact-icon">🕐</span>
+    <div>
+      <div class="sp-contact-label">Horario de atención</div>
+      <div class="sp-contact-value">Lunes a Domingo · Todo el día</div>
+    </div>
+  </div>
+  <div class="sp-contact-divider"></div>
+  <div class="sp-contact-item">
+    <span class="sp-contact-icon">⚡</span>
+    <div>
+      <div class="sp-contact-label">Tiempo de respuesta</div>
+      <div class="sp-contact-value">Menos de 24 horas</div>
+    </div>
   </div>
 </div>
 
-<!-- FORMULARIO -->
-<div class="soporte-form-wrap fade-up">
-  <div class="soporte-form-card">
-    <h2 class="soporte-form-titulo">📝 Envíanos tu mensaje</h2>
-    <p class="soporte-form-sub">Completa el formulario y se abrirá tu cliente de correo listo para enviar.</p>
+<!-- FORMULARIO + FAQ en columnas -->
+<div class="sp-main fade-up">
 
-    <div class="soporte-form">
-      <div class="sf-row">
-        <div class="sf-group">
-          <label class="sf-label">Tu nombre</label>
-          <input type="text" id="sf-nombre" class="sf-input" placeholder="Ej: Juan García">
-        </div>
-        <div class="sf-group">
-          <label class="sf-label">Tu correo</label>
-          <input type="email" id="sf-correo" class="sf-input" placeholder="tu@correo.com">
-        </div>
-      </div>
+  <!-- FORMULARIO -->
+  <div class="sp-form-card">
+    <h2 class="sp-section-title">✉️ Envíanos un mensaje</h2>
 
+    <div class="sf-group">
+      <label class="sf-label">Motivo</label>
+      <select id="sf-asunto" class="sf-input">
+        <option value="">Selecciona un motivo...</option>
+        <option value="Problema con depósito">💳 Problema con depósito</option>
+        <option value="Problema con retiro">💸 Problema con retiro</option>
+        <option value="Problema técnico en juego">🎮 Problema técnico en juego</option>
+        <option value="Cuenta bloqueada o suspendida">🔒 Cuenta bloqueada</option>
+        <option value="Consulta sobre RoyalCoin">🪙 Consulta sobre RoyalCoin</option>
+        <option value="Otro">❓ Otro</option>
+      </select>
+    </div>
+
+    <div class="sf-row">
       <div class="sf-group">
-        <label class="sf-label">Asunto</label>
-        <select id="sf-asunto" class="sf-input">
-          <option value="">Selecciona un motivo...</option>
-          <option value="Problema con depósito">Problema con depósito</option>
-          <option value="Problema con retiro">Problema con retiro</option>
-          <option value="Problema técnico en juego">Problema técnico en juego</option>
-          <option value="Cuenta bloqueada o suspendida">Cuenta bloqueada o suspendida</option>
-          <option value="Consulta sobre RoyalCoin">Consulta sobre RoyalCoin</option>
-          <option value="Otro">Otro</option>
-        </select>
+        <label class="sf-label">Tu nombre</label>
+        <input type="text" id="sf-nombre" class="sf-input" placeholder="Juan García">
       </div>
-
       <div class="sf-group">
-        <label class="sf-label">Mensaje</label>
-        <textarea id="sf-mensaje" class="sf-input sf-textarea" placeholder="Describe tu problema o consulta con el mayor detalle posible..."></textarea>
+        <label class="sf-label">Tu correo</label>
+        <input type="email" id="sf-correo" class="sf-input" placeholder="tu@correo.com">
       </div>
+    </div>
 
-      <button type="button" onclick="enviarSoporte()" class="btn-soporte-send">
-        🚀 Abrir correo y enviar
-      </button>
+    <div class="sf-group">
+      <label class="sf-label">Mensaje</label>
+      <textarea id="sf-mensaje" class="sf-input sf-textarea" placeholder="Describe tu problema con el mayor detalle posible..."></textarea>
+    </div>
+
+    <button type="button" onclick="enviarSoporte()" class="btn-soporte-send">
+      🚀 Enviar mensaje
+    </button>
+  </div>
+
+  <!-- FAQ -->
+  <div class="sp-faq-card">
+    <h2 class="sp-section-title">❓ Preguntas frecuentes</h2>
+    <div class="faq-list">
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cómo compro RoyalCoin (RSC)? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a">Contáctanos por soporte o escríbenos al correo. Coordinamos el pago y acreditamos tus RSC manualmente.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cuánto tarda un retiro? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a">El admin revisa y aprueba los retiros lo antes posible. Generalmente en menos de 24 horas hábiles.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Cómo cambio mi contraseña? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a">Ve a tu perfil y usa la opción "Cambiar contraseña". También puedes usar "¿Olvidaste tu contraseña?" en el login.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Qué es el bono del 10%? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a">Por cada RSC que depositas, recibes un 10% extra de saldo gratis acreditado automáticamente al aprobar.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Mi cuenta es segura? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a">Sí. Usamos contraseñas encriptadas y sesiones seguras. Nunca compartimos tus datos con terceros.</div>
+      </div>
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">¿Puedo tener más de una cuenta? <span class="faq-arrow">▾</span></div>
+        <div class="faq-a">No. Cada jugador puede tener una sola cuenta activa. Cuentas duplicadas serán suspendidas.</div>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- FAQ -->
-<div class="soporte-faq fade-up">
-  <h2 class="soporte-faq-titulo">❓ Preguntas Frecuentes</h2>
-  <div class="faq-grid">
-    <div class="faq-item">
-      <div class="faq-q">¿Cómo compro RoyalCoin (RSC)?</div>
-      <div class="faq-a">Contáctanos por soporte o escríbenos al correo. Coordinamos el pago y acreditamos tus RSC manualmente.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q">¿Cuánto tarda un retiro?</div>
-      <div class="faq-a">El admin revisa y aprueba los retiros lo antes posible. Generalmente en menos de 24 horas hábiles.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q">¿Cómo cambio mi contraseña?</div>
-      <div class="faq-a">Ve a tu perfil y usa la opción "Cambiar contraseña". También puedes usar "¿Olvidaste tu contraseña?" en el login.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q">¿Qué es el bono del 10%?</div>
-      <div class="faq-a">Por cada RSC que depositas, recibes un 10% extra de saldo gratis acreditado automáticamente al aprobar.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q">¿Mi cuenta es segura?</div>
-      <div class="faq-a">Sí. Usamos contraseñas encriptadas y sesiones seguras. Nunca compartimos tus datos con terceros.</div>
-    </div>
-    <div class="faq-item">
-      <div class="faq-q">¿Puedo tener más de una cuenta?</div>
-      <div class="faq-a">No. Cada jugador puede tener una sola cuenta activa. Cuentas duplicadas serán suspendidas.</div>
-    </div>
-  </div>
 </div>
 
 <style>
-.soporte-main { margin-bottom: 28px; }
-.soporte-info-card {
-  display:flex; align-items:center; gap:20px; flex-wrap:wrap;
-  background:linear-gradient(135deg,rgba(200,16,46,.1) 0%,rgba(201,168,76,.06) 100%);
-  border:1.5px solid rgba(200,16,46,.35); border-radius:18px;
-  padding:24px 28px;
-  box-shadow:0 0 30px rgba(200,16,46,.1);
+/* ── CONTACT BAR ── */
+.sp-contact-bar {
+  display:flex; align-items:center; gap:0;
+  background:linear-gradient(135deg,rgba(200,16,46,.08),rgba(201,168,76,.05));
+  border:1.5px solid rgba(200,16,46,.28); border-radius:16px;
+  padding:20px 28px; margin-bottom:24px; flex-wrap:wrap; gap:0;
 }
-.soporte-icon { font-size:2.8rem; flex-shrink:0; }
-.soporte-info-body { flex:1; }
-.soporte-info-titulo { font-size:.68rem; color:var(--gris2); text-transform:uppercase; letter-spacing:.1em; margin-bottom:4px; }
-.soporte-info-email {
-  font-family:'Rajdhani',sans-serif; font-size:1.4rem; font-weight:800;
-  background:var(--gd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-  margin-bottom:4px;
-}
-.soporte-info-sub { font-size:.72rem; color:var(--gris2); }
-.btn-soporte-email {
-  background:var(--gd); color:var(--negro);
-  font-weight:800; font-size:.85rem; padding:12px 24px;
-  border-radius:12px; text-decoration:none; white-space:nowrap;
-  box-shadow:0 4px 16px rgba(201,168,76,.35); transition:all .2s;
-}
-.btn-soporte-email:hover { box-shadow:0 6px 24px rgba(201,168,76,.55); transform:translateY(-2px); }
+.sp-contact-item { display:flex; align-items:center; gap:14px; flex:1; min-width:180px; }
+.sp-contact-icon { font-size:1.8rem; flex-shrink:0; }
+.sp-contact-label { font-size:.62rem; color:var(--gris2); text-transform:uppercase; letter-spacing:.08em; margin-bottom:3px; }
+.sp-contact-value { font-size:.9rem; font-weight:700; color:var(--blanco); text-decoration:none; }
+a.sp-contact-value:hover { color:var(--dorado2); }
+.sp-contact-divider { width:1px; height:48px; background:rgba(255,255,255,.08); margin:0 24px; flex-shrink:0; }
 
-/* FORM */
-.soporte-form-wrap { margin-bottom:28px; }
-.soporte-form-card {
+/* ── LAYOUT PRINCIPAL ── */
+.sp-main { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:40px; }
+.sp-section-title { font-family:'Rajdhani',sans-serif; font-size:1.25rem; font-weight:800; color:var(--blanco); margin-bottom:20px; }
+
+/* ── FORMULARIO ── */
+.sp-form-card {
   background:linear-gradient(160deg,rgba(20,8,14,.97),rgba(10,4,10,.99));
-  border:1px solid rgba(200,16,46,.22); border-radius:20px; padding:32px;
+  border:1px solid rgba(200,16,46,.22); border-radius:18px; padding:28px;
+  display:flex; flex-direction:column; gap:14px;
 }
-.soporte-form-titulo { font-family:'Rajdhani',sans-serif; font-size:1.4rem; font-weight:800; color:var(--blanco); margin-bottom:6px; }
-.soporte-form-sub { font-size:.76rem; color:var(--gris2); margin-bottom:24px; }
-.soporte-form { display:flex; flex-direction:column; gap:16px; }
-.sf-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.sf-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .sf-group { display:flex; flex-direction:column; gap:6px; }
-.sf-label { font-size:.68rem; font-weight:700; color:var(--gris2); text-transform:uppercase; letter-spacing:.07em; }
+.sf-label { font-size:.65rem; font-weight:700; color:var(--gris2); text-transform:uppercase; letter-spacing:.07em; }
 .sf-input {
-  background:rgba(0,0,0,.4); border:1px solid rgba(200,16,46,.25);
-  border-radius:10px; padding:12px 14px; color:var(--blanco);
+  background:rgba(0,0,0,.4); border:1px solid rgba(200,16,46,.22);
+  border-radius:10px; padding:11px 14px; color:var(--blanco);
   font-family:'DM Sans',sans-serif; font-size:.85rem;
-  transition:border-color .2s; outline:none;
+  transition:border-color .2s; outline:none; width:100%; box-sizing:border-box;
 }
 .sf-input:focus { border-color:rgba(200,16,46,.6); }
-.sf-textarea { resize:vertical; min-height:120px; }
+.sf-textarea { resize:vertical; min-height:110px; }
 .btn-soporte-send {
-  width:100%; padding:14px;
+  width:100%; padding:13px;
   background:var(--gr); color:var(--blanco);
-  font-weight:800; font-size:1rem; font-family:'DM Sans',sans-serif;
+  font-weight:800; font-size:.95rem; font-family:'DM Sans',sans-serif;
   border:none; border-radius:12px; cursor:pointer;
-  box-shadow:0 4px 20px rgba(200,16,46,.35); transition:all .2s;
+  box-shadow:0 4px 20px rgba(200,16,46,.35); transition:all .2s; margin-top:4px;
 }
 .btn-soporte-send:hover { box-shadow:0 6px 30px rgba(200,16,46,.55); transform:translateY(-2px); }
 
-/* FAQ */
-.soporte-faq { margin-bottom:40px; }
-.soporte-faq-titulo { font-family:'Rajdhani',sans-serif; font-size:1.4rem; font-weight:800; color:var(--blanco); margin-bottom:20px; }
-.faq-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+/* ── FAQ ── */
+.sp-faq-card {
+  background:linear-gradient(160deg,rgba(20,8,14,.97),rgba(10,4,10,.99));
+  border:1px solid rgba(201,168,76,.15); border-radius:18px; padding:28px;
+}
+.faq-list { display:flex; flex-direction:column; gap:8px; }
 .faq-item {
-  background:rgba(0,0,0,.3); border:1px solid rgba(200,16,46,.18);
-  border-radius:14px; padding:18px 20px;
+  background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.06);
+  border-radius:12px; padding:14px 18px; cursor:pointer;
   transition:border-color .2s;
 }
-.faq-item:hover { border-color:rgba(200,16,46,.4); }
-.faq-q { font-weight:700; font-size:.85rem; color:var(--rojo3); margin-bottom:8px; }
-.faq-a { font-size:.76rem; color:var(--gris2); line-height:1.65; }
+.faq-item:hover { border-color:rgba(200,16,46,.3); }
+.faq-item.open { border-color:rgba(200,16,46,.4); }
+.faq-q { font-weight:700; font-size:.83rem; color:var(--blanco); display:flex; justify-content:space-between; align-items:center; }
+.faq-arrow { color:var(--dorado2); font-size:1rem; transition:transform .2s; flex-shrink:0; }
+.faq-item.open .faq-arrow { transform:rotate(180deg); }
+.faq-a { font-size:.76rem; color:var(--gris2); line-height:1.65; max-height:0; overflow:hidden; transition:max-height .3s ease, margin-top .3s; }
+.faq-item.open .faq-a { max-height:120px; margin-top:10px; }
 
-@media(max-width:700px){
+@media(max-width:900px){
+  .sp-main { grid-template-columns:1fr; }
   .sf-row { grid-template-columns:1fr; }
-  .faq-grid { grid-template-columns:1fr; }
-  .soporte-info-card { flex-direction:column; text-align:center; }
+  .sp-contact-bar { flex-direction:column; align-items:flex-start; gap:16px; }
+  .sp-contact-divider { display:none; }
 }
 </style>
 
 <script>
+function toggleFaq(el){
+  const wasOpen = el.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  if(!wasOpen) el.classList.add('open');
+}
+
 function enviarSoporte(){
   const nombre  = document.getElementById('sf-nombre').value.trim();
   const correo  = document.getElementById('sf-correo').value.trim();
@@ -183,9 +198,9 @@ function enviarSoporte(){
   if(!asunto){ alert('Por favor selecciona un motivo.'); return; }
   if(!mensaje){ alert('Por favor escribe tu mensaje.'); return; }
 
-  const para    = 'soporteroyal@yopmail.com';
-  const subj    = encodeURIComponent('[Royal Spin] ' + (asunto || 'Consulta'));
-  const body    = encodeURIComponent(
+  const para = 'soporteroyal@yopmail.com';
+  const subj = encodeURIComponent('[Royal Spin] ' + asunto);
+  const body = encodeURIComponent(
     'Nombre: ' + (nombre || 'No indicado') + '\n' +
     'Correo: ' + (correo || 'No indicado') + '\n' +
     'Motivo: ' + asunto + '\n\n' +
