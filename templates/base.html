@@ -301,7 +301,7 @@
   <footer class="footer">
     <span>+18 | Juego Responsable | Royal Spin 2025</span>
     <span class="footer-brand">&#9824; &#9827; ROYAL SPIN &#9824; &#9827;</span>
-    <a href="/soporte" class="footer-soporte-btn">💬 Soporte</a>
+    <a href="/soporte" class="footer-soporte-btn" id="btnSoporteFloat">💬 Soporte</a>
   </footer>
 
 <style>
@@ -347,6 +347,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', () => drops.forEach(d => d.classList.remove('open')));
   document.addEventListener('keydown', e => { if (e.key==='Escape') drops.forEach(d => d.classList.remove('open')); });
 });
+</script>
+<script>
+  (function(){
+    const btn = document.getElementById('btnSoporteFloat');
+    if(btn && window.location.pathname === '/soporte') btn.style.display = 'none';
+  })();
 </script>
 </body>
 </html>
